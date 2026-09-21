@@ -1,0 +1,35 @@
+{
+  "name": "educar-para-transformar",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": "22.x"
+  },
+  "scripts": {
+    "dev": "vite",
+    "server": "node --env-file-if-exists=.env server/start.js",
+    "db:migrate": "node --env-file-if-exists=.env.local scripts/migrate-sqlite-to-postgres.js",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "start": "node --env-file-if-exists=.env server/start.js"
+  },
+  "dependencies": {
+    "@vitejs/plugin-react": "^5.1.1",
+    "cors": "^2.8.5",
+    "express": "^5.2.1",
+    "lucide-react": "^0.561.0",
+    "pg": "^8.21.0",
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3",
+    "vite": "^7.3.0"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/node": "^25.0.3",
+    "@types/react": "^19.2.7",
+    "@types/react-dom": "^19.2.3",
+    "typescript": "^5.9.3"
+  }
+}
