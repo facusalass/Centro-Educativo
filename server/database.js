@@ -634,9 +634,44 @@ export const db = {
   tableIsEmpty,
 };
 
+const rlsTables = [
+  'niveles_educativos',
+  'alumnos',
+  'docentes',
+  'cursos',
+  'materias',
+  'asignaciones_docentes',
+  'deportes',
+  'grupos_deporte',
+  'recorridos_transporte',
+  'inscripciones',
+  'servicios',
+  'instalaciones',
+  'alumnos_servicios',
+  'asistencias_diarias',
+  'evaluaciones',
+  'calificaciones_alumnos',
+  'usuarios_acceso',
+  'opiniones_web',
+  'solicitudes_inscripcion',
+  'postulaciones_empleo',
+  'noticias',
+  'actividades_escolares',
+  'galeria_imagenes',
+  'contacto_mensajes',
+];
+
+async function enableRowLevelSecurity() {
+  if (databaseMode !== 'postgres') return;
+  for (const table of rlsTables) {
+    await pool.query(`ALTER TABLE ${table} ENABLE ROW LEVEL SECURITY`);
+  }
+}
+
 export async function initializeDatabase() {
   await exec(databaseMode === 'postgres' ? postgresSchema : sqliteSchema);
   await runMigrations();
+  await enableRowLevelSecurity();
   await seedDatabase();
 }
 
