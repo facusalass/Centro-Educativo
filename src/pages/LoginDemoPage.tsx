@@ -8,12 +8,13 @@ import type {
   AsignacionDocente,
   Curso,
   Deporte,
-  Docente,
   GrupoDeporte,
   InscripcionTipo,
   Instalacion,
   Noticia,
   RecorridoTransporte,
+  ReporteAlumno,
+  ReporteDocente,
   Servicio,
   UsuarioAcceso,
 } from '../types';
@@ -199,7 +200,7 @@ function RoleContent({ usuario, data }: { usuario: UsuarioAcceso; data: RoleData
 }
 
 function DocenteDashboard({ usuario }: { usuario: UsuarioAcceso }) {
-  const [reporte, setReporte] = useState<Record<string, unknown> | null>(null);
+  const [reporte, setReporte] = useState<ReporteDocente | null>(null);
   const [status, setStatus] = useState('Cargando...');
 
   useEffect(() => {
@@ -215,15 +216,14 @@ function DocenteDashboard({ usuario }: { usuario: UsuarioAcceso }) {
   if (status) return <p className="form-status">{status}</p>;
   if (!reporte) return null;
 
-  const cursos = (reporte.cursos as Array<{ curso: Curso | null; materia: string; dia: string; horario: string; alumnos: Array<{ legajo: string; apellido: string; nombre: string }> }>) ?? [];
-  const materias = (reporte.materiasACargo as string[]) ?? [];
-  const grupos = (reporte.gruposDeporte as Array<{ grupo: GrupoDeporte; deporte: Deporte | null }>) ?? [];
-
   return (
     <div className="role-grid">
-      <RoleCard title="Materias a cargo" items={materias} />
-      <RoleCard title="Grupos deportivos" items={grupos.map((item) => `${item.deporte?.nombre ?? 'Deporte'} - ${item.grupo.nivel} ${item.grupo.dia} ${item.grupo.horario}`)} />
-      {cursos.map((curso) => (
+      <RoleCard title="Materias a cargo" items={reporte.materiasACargo} />
+      <RoleCard
+        title="Grupos deportivos"
+        items={reporte.gruposDeporte.map((item) => `${item.deporte?.nombre ?? 'Deporte'} - ${item.grupo.nivel} ${item.grupo.dia} ${item.grupo.horario}`)}
+      />
+      {reporte.cursos.map((curso) => (
         <RoleCard
           key={`${curso.materia}-${curso.curso?.id ?? 'x'}`}
           title={`${curso.materia} - ${curso.curso?.nivel ?? ''} ${curso.curso?.anio ?? ''} ${curso.curso?.division ?? ''} (${curso.dia} ${curso.horario})`}
@@ -235,7 +235,7 @@ function DocenteDashboard({ usuario }: { usuario: UsuarioAcceso }) {
 }
 
 function AlumnoDashboard({ usuario }: { usuario: UsuarioAcceso }) {
-  const [reporte, setReporte] = useState<Record<string, unknown> | null>(null);
+  const [reporte, setReporte] = useState<ReporteAlumno | null>(null);
   const [status, setStatus] = useState('Cargando...');
 
   useEffect(() => {
@@ -251,24 +251,25 @@ function AlumnoDashboard({ usuario }: { usuario: UsuarioAcceso }) {
   if (status) return <p className="form-status">{status}</p>;
   if (!reporte) return null;
 
-  const materias = (reporte.materias as Array<{ materia: string; dia: string; horario: string; profesor: Docente | null }>) ?? [];
-  const deportes = (reporte.deportes as Array<{ deporte: Deporte | null; dia: string; horario: string }>) ?? [];
-  const transporte = (reporte.transporte as RecorridoTransporte[]) ?? [];
-  const comedor = reporte.comedor as boolean;
-
   return (
     <div className="role-grid">
-      <RoleCard title="Materias" items={materias.map((m) => `${m.materia} - ${m.profesor ? `${m.profesor.apellido}, ${m.profesor.nombre}` : 'sin docente'} (${m.dia} ${m.horario})`)} />
-      <RoleCard title="Deportes" items={deportes.map((d) => `${d.deporte?.nombre ?? ''} (${d.dia} ${d.horario})`)} />
-      <RoleCard title="Transporte" items={transporte.map((r) => `${r.nombre} - ${r.horario}`)} />
-      <RoleCard title="Comedor" items={comedor ? ['Inscripto al servicio de comedor'] : []} />
+      <RoleCard
+        title="Materias"
+        items={reporte.materias.map((materia) => `${materia.materia} - ${materia.profesor ? `${materia.profesor.apellido}, ${materia.profesor.nombre}` : 'sin docente'} (${materia.dia} ${materia.horario})`)}
+      />
+      <RoleCard
+        title="Deportes"
+        items={reporte.deportes.map((item) => `${item.deporte?.nombre ?? ''} (${item.dia ?? ''} ${item.horario ?? ''})`)}
+      />
+      <RoleCard title="Transporte" items={reporte.transporte.map((recorrido) => `${recorrido.nombre} - ${recorrido.horario}`)} />
+      <RoleCard title="Comedor" items={reporte.comedor ? ['Inscripto al servicio de comedor'] : []} />
     </div>
   );
 }
 
 function PadreDashboard({ usuario }: { usuario: UsuarioAcceso }) {
   const [hijos, setHijos] = useState<Alumno[]>([]);
-  const [reportes, setReportes] = useState<Record<number, Record<string, unknown>>>({});
+  const [reportes, setReportes] = useState<Record<number, ReporteAlumno>>({});
   const [grupos, setGrupos] = useState<GrupoDeporte[]>([]);
   const [deportes, setDeportes] = useState<Deporte[]>([]);
   const [recorridos, setRecorridos] = useState<RecorridoTransporte[]>([]);
@@ -287,7 +288,7 @@ function PadreDashboard({ usuario }: { usuario: UsuarioAcceso }) {
     setDeportes(deportesData);
     setRecorridos(recorridosData);
 
-    const mapa: Record<number, Record<string, unknown>> = {};
+    const mapa: Record<number, ReporteAlumno> = {};
     for (const hijo of hijosData) {
       mapa[hijo.id] = await api.getReporteAlumno(hijo.id);
     }
@@ -322,15 +323,15 @@ function PadreDashboard({ usuario }: { usuario: UsuarioAcceso }) {
       <div className="role-grid">
         {hijos.map((hijo) => {
           const reporte = reportes[hijo.id];
-          const materias = (reporte?.materias as Array<{ materia: string; profesor: Docente | null }>) ?? [];
-          const deportes = (reporte?.deportes as Array<{ deporte: Deporte | null; dia: string; horario: string }>) ?? [];
+          const materias = reporte?.materias ?? [];
+          const deportes = reporte?.deportes ?? [];
           return (
             <RoleCard
               key={hijo.id}
               title={`${hijo.nombre} ${hijo.apellido} (${hijo.curso} ${hijo.division})`}
               items={[
-                ...materias.map((m) => `Materia: ${m.materia} (${m.profesor ? `${m.profesor.apellido}` : 'sin docente'})`),
-                ...deportes.map((d) => `Deporte: ${d.deporte?.nombre ?? ''} ${d.dia} ${d.horario}`),
+                ...materias.map((materia) => `Materia: ${materia.materia} (${materia.profesor ? `${materia.profesor.apellido}` : 'sin docente'})`),
+                ...deportes.map((item) => `Deporte: ${item.deporte?.nombre ?? ''} ${item.dia ?? ''} ${item.horario ?? ''}`),
               ]}
             />
           );

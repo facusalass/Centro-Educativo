@@ -34,6 +34,11 @@ const tables = [
   'asistencias_diarias',
   'evaluaciones',
   'calificaciones_alumnos',
+  'materias',
+  'deportes',
+  'grupos_deporte',
+  'recorridos_transporte',
+  'inscripciones',
 ];
 
 if (!postgresUrl) {

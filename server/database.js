@@ -684,22 +684,6 @@ async function runMigrations() {
   for (const [table, column, definition] of columns) {
     await ensureColumn(table, column, definition);
   }
-
-  if (await hasColumn('cursos', 'nombre')) {
-    await run("UPDATE cursos SET anio = COALESCE(NULLIF(anio, ''), nombre) WHERE anio = '' OR anio IS NULL");
-  }
-
-  if (await hasColumn('alumnos', 'fecha_alta')) {
-    await run('UPDATE alumnos SET created_at = COALESCE(created_at, fecha_alta) WHERE created_at IS NULL');
-  }
-
-  if (await hasColumn('docentes', 'activo')) {
-    await run("UPDATE docentes SET estado = CASE WHEN activo = 1 THEN 'activo' ELSE 'inactivo' END WHERE estado IS NULL OR estado = ''");
-  }
-
-  if (await hasColumn('usuarios_acceso', 'activo')) {
-    await run("UPDATE usuarios_acceso SET estado = CASE WHEN activo = 1 THEN 'activo' ELSE 'inactivo' END WHERE estado IS NULL OR estado = ''");
-  }
 }
 
 async function ensureColumn(tableName, columnName, definition) {

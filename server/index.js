@@ -76,13 +76,10 @@ function selectFields(body, allowedFields) {
 }
 
 async function insertRecord(table, data) {
-  if (table === 'cursos' && (await db.hasColumn(table, 'nombre')) && !data.nombre) {
-    data.nombre = [data.anio, data.division].filter(Boolean).join(' ') || data.nivel;
-  }
-  if (table === 'servicios' && (await db.hasColumn(table, 'icono')) && !data.icono) {
+  if (table === 'servicios' && !data.icono) {
     data.icono = 'school';
   }
-  if (table === 'instalaciones' && (await db.hasColumn(table, 'imagen_url')) && !data.imagen_url) {
+  if (table === 'instalaciones' && !data.imagen_url) {
     data.imagen_url = 'https://images.unsplash.com/photo-1586144131462-fa2a2b6d070c?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=900';
   }
 
@@ -90,11 +87,6 @@ async function insertRecord(table, data) {
 }
 
 async function updateRecord(table, id, data) {
-  if (table === 'cursos' && (await db.hasColumn(table, 'nombre')) && (data.anio || data.division)) {
-    const current = (await getById(table, id)) ?? {};
-    data.nombre = [data.anio ?? current.anio, data.division ?? current.division].filter(Boolean).join(' ') || (data.nivel ?? current.nivel);
-  }
-
   const result = await db.update(table, id, data);
   return result.changes;
 }
@@ -588,58 +580,51 @@ async function createInscripcion(req, res) {
     return res.status(400).json({ error: 'Tipo de inscripcion invalido (deporte, transporte o comedor).' });
   }
 
-  const alumno = await db.get('SELECT * FROM alumnos WHERE id = ?', [alumnoId]);
-  if (!alumno) return res.status(404).json({ error: 'Alumno no encontrado.' });
-
-  let grupoDeporteId = null;
-  let recorridoId = null;
-
-  if (tipo === 'deporte') {
-    grupoDeporteId = Number(data.grupo_deporte_id);
-    if (!grupoDeporteId) return res.status(400).json({ error: 'grupo_deporte_id es obligatorio para inscripciones deportivas.' });
-
-    const grupo = await db.get('SELECT * FROM grupos_deporte WHERE id = ?', [grupoDeporteId]);
-    if (!grupo) return res.status(404).json({ error: 'Grupo deportivo no encontrado.' });
-
-    const existing = await db.get(
-      "SELECT * FROM inscripciones WHERE alumno_id = ? AND tipo = 'deporte' AND grupo_deporte_id = ?",
-      [alumnoId, grupoDeporteId],
-    );
-    if (existing) return res.status(409).json({ error: 'El alumno ya esta inscripto en este grupo deportivo.' });
-
-    const deporteCount = await db.get(
-      "SELECT COUNT(*) AS total FROM inscripciones WHERE alumno_id = ? AND tipo = 'deporte'",
-      [alumnoId],
-    );
-    if (Number(deporteCount.total) >= 2) {
-      return res.status(409).json({ error: 'El alumno ya esta inscripto a dos deportes (maximo permitido).' });
-    }
-
-    const otras = await db.all("SELECT * FROM inscripciones WHERE alumno_id = ? AND tipo = 'deporte'", [alumnoId]);
-    for (const inscripcion of otras) {
-      const otroGrupo = await db.get('SELECT * FROM grupos_deporte WHERE id = ?', [inscripcion.grupo_deporte_id]);
-      if (otroGrupo && otroGrupo.dia === grupo.dia && horariosConflict(otroGrupo.horario, grupo.horario)) {
-        return res.status(409).json({ error: 'Conflicto de horario con otra actividad deportiva del alumno.' });
-      }
-    }
-  } else if (tipo === 'transporte') {
-    recorridoId = Number(data.recorrido_id);
-    if (!recorridoId) return res.status(400).json({ error: 'recorrido_id es obligatorio para inscripciones de transporte.' });
-
-    const recorrido = await db.get('SELECT * FROM recorridos_transporte WHERE id = ?', [recorridoId]);
-    if (!recorrido) return res.status(404).json({ error: 'Recorrido no encontrado.' });
-
-    const existing = await db.get(
-      "SELECT * FROM inscripciones WHERE alumno_id = ? AND tipo = 'transporte'",
-      [alumnoId],
-    );
-    if (existing) return res.status(409).json({ error: 'El alumno ya esta inscripto al servicio de transporte.' });
-  } else {
-    const existing = await db.get("SELECT * FROM inscripciones WHERE alumno_id = ? AND tipo = 'comedor'", [alumnoId]);
-    if (existing) return res.status(409).json({ error: 'El alumno ya esta inscripto al servicio de comedor.' });
-  }
-
   try {
+    const alumno = await db.get('SELECT * FROM alumnos WHERE id = ?', [alumnoId]);
+    if (!alumno) return res.status(404).json({ error: 'Alumno no encontrado.' });
+
+    const grupoDeporteId = tipo === 'deporte' ? Number(data.grupo_deporte_id) : null;
+    const recorridoId = tipo === 'transporte' ? Number(data.recorrido_id) : null;
+
+    if (tipo === 'deporte') {
+      if (!grupoDeporteId) return res.status(400).json({ error: 'grupo_deporte_id es obligatorio para inscripciones deportivas.' });
+
+      const grupo = await db.get('SELECT * FROM grupos_deporte WHERE id = ?', [grupoDeporteId]);
+      if (!grupo) return res.status(404).json({ error: 'Grupo deportivo no encontrado.' });
+
+      const inscripcionesDeportivas = await db.all(
+        "SELECT id, grupo_deporte_id FROM inscripciones WHERE alumno_id = ? AND tipo = 'deporte'",
+        [alumnoId],
+      );
+
+      if (inscripcionesDeportivas.some((inscripcion) => inscripcion.grupo_deporte_id === grupoDeporteId)) {
+        return res.status(409).json({ error: 'El alumno ya esta inscripto en este grupo deportivo.' });
+      }
+
+      if (inscripcionesDeportivas.length >= 2) {
+        return res.status(409).json({ error: 'El alumno ya esta inscripto a dos deportes (maximo permitido).' });
+      }
+
+      for (const inscripcion of inscripcionesDeportivas) {
+        const otroGrupo = await db.get('SELECT * FROM grupos_deporte WHERE id = ?', [inscripcion.grupo_deporte_id]);
+        if (otroGrupo && otroGrupo.dia === grupo.dia && horariosConflict(otroGrupo.horario, grupo.horario)) {
+          return res.status(409).json({ error: 'Conflicto de horario con otra actividad deportiva del alumno.' });
+        }
+      }
+    } else if (tipo === 'transporte') {
+      if (!recorridoId) return res.status(400).json({ error: 'recorrido_id es obligatorio para inscripciones de transporte.' });
+
+      const recorrido = await db.get('SELECT * FROM recorridos_transporte WHERE id = ?', [recorridoId]);
+      if (!recorrido) return res.status(404).json({ error: 'Recorrido no encontrado.' });
+
+      const existing = await db.get("SELECT id FROM inscripciones WHERE alumno_id = ? AND tipo = 'transporte'", [alumnoId]);
+      if (existing) return res.status(409).json({ error: 'El alumno ya esta inscripto al servicio de transporte.' });
+    } else {
+      const existing = await db.get("SELECT id FROM inscripciones WHERE alumno_id = ? AND tipo = 'comedor'", [alumnoId]);
+      if (existing) return res.status(409).json({ error: 'El alumno ya esta inscripto al servicio de comedor.' });
+    }
+
     const id = await db.insert('inscripciones', {
       alumno_id: alumnoId,
       tipo,

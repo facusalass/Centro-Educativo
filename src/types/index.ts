@@ -106,6 +106,89 @@ export type ResumenAsistencia = {
   resumen: { presentes: number; ausentes: number; total: number; porcentaje: number };
 };
 
+export type ReporteAlumno = {
+  alumno: Alumno;
+  curso: Curso | null;
+  materias: Array<{ materia: string; dia: string; horario: string; profesor: Docente | null }>;
+  deportes: Array<{
+    deporte: Deporte | null;
+    grupo: GrupoDeporte | null;
+    dia?: string;
+    horario?: string;
+    profesor: Docente | null;
+  }>;
+  transporte: RecorridoTransporte[];
+  comedor: boolean;
+};
+
+export type ReporteDocente = {
+  docente: Docente;
+  cursos: Array<{
+    curso: Curso | null;
+    materia: string;
+    dia: string;
+    horario: string;
+    alumnos: Array<{ legajo: string; apellido: string; nombre: string; nivel: string; curso: string }>;
+  }>;
+  materiasACargo: string[];
+  gruposDeporte: Array<{ grupo: GrupoDeporte; deporte: Deporte | null }>;
+};
+
+export type AlumnoResumen = {
+  legajo: string;
+  apellido: string;
+  nombre: string;
+  curso?: string;
+  nivel?: string;
+};
+
+export type AlumnosPorDeporte = Array<{
+  deporte: string;
+  profesor: Docente | null;
+  grupos: Array<{
+    nivel: string;
+    dia: string;
+    horario: string;
+    profesor: Docente | null;
+    alumnos: AlumnoResumen[];
+  }>;
+}>;
+
+export type AlumnosPorDeporteNivel = Array<{
+  deporte: string;
+  nivel: string;
+  alumnos: Array<{ legajo: string; apellido: string; nombre: string; curso: string }>;
+}>;
+
+export type AlumnosPorDeporteDetalle = Array<{
+  deporte: string | null;
+  nivel: string;
+  dia: string;
+  horario: string;
+  profesor: Docente | null;
+  alumnos: AlumnoResumen[];
+}>;
+
+export type AlumnosPorRecorrido = Array<{
+  recorrido: string;
+  horario: string;
+  zona: string;
+  alumnos: AlumnoResumen[];
+}>;
+
+export type AlumnosPorMateria = Array<{
+  nivel: string | null;
+  curso: string | null;
+  materia: string;
+  profesor: string | null;
+  alumnos: Array<{ legajo: string; apellido: string; nombre: string }>;
+}>;
+
+export type DocentesPorNivel = Array<{
+  nivel: string;
+  docentes: Array<{ profesor: string | null; materias: string[]; cursos: Array<string | null> }>;
+}>;
+
 export type Curso = {
   id: number;
   nivel: string;

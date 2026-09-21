@@ -74,38 +74,37 @@ personal@educar.com / personal123
 
 - Alumnos
 - Docentes
-- Academico: cursos y asignaciones docentes
+- Academico: cursos, materias y asignaciones docentes
+- Deportes y grupos deportivos (nivel, horario y profesor)
+- Transporte: recorridos
+- Inscripciones (deportes, transporte y comedor) con reglas de negocio
+- Control de asistencias
+- Reportes (por alumno, por docente, por deporte, por recorrido, por materia)
 - Servicios
 - Instalaciones
 - Comunicacion: noticias, actividades, galeria y contacto
 - Solicitud de inscripcion
 - Opiniones web
 - Postulaciones de empleo
-- Acceso basico por roles
+- Acceso basico por roles (admin, docente, padre, alumno, personal)
 - Panel interno simple
 
 ## Base de datos
 
-Al iniciar el backend se crean o actualizan automaticamente las tablas y datos demo. En Vercel debe configurarse una base Postgres persistente mediante:
+El proyecto usa **Supabase** (PostgreSQL). Al iniciar el backend se crean o actualizan automaticamente las tablas y se cargan los datos demo (solo si la base esta vacia). Unicamente se necesita la variable de entorno:
 
 ```txt
 DATABASE_URL
 ```
 
-La opcion mas directa es instalar **Neon** desde Vercel Marketplace, crear una base y conectarla al proyecto `centroeducativo-tp` para Production, Preview y Development. La integracion agrega `DATABASE_URL` automaticamente.
-
-Para copiar los datos de la base SQLite actual:
+En Supabase, copia la connection string desde **Project Settings → Database → Connection string → Session pooler** (usar el pooler y no la conexion directa, para evitar problemas de IPv6). Para desarrollo local:
 
 ```bash
-npx vercel env pull .env.local
-npm run db:migrate
+# .env (no se sube al repo)
+DATABASE_URL="postgresql://postgres.<ref>:<password>@aws-0-<region>.pooler.supabase.com:5432/postgres"
 ```
 
-El importador exige que Postgres este vacio. Si la API ya creo los datos demo y queres reemplazarlos por el contenido exacto de SQLite:
-
-```bash
-npm run db:migrate -- --replace
-```
+En Vercel, agregar `DATABASE_URL` como variable de entorno para Production, Preview y Development.
 
 Tablas principales:
 
@@ -113,7 +112,12 @@ Tablas principales:
 - alumnos
 - docentes
 - cursos
+- materias
 - asignaciones_docentes
+- deportes
+- grupos_deporte
+- recorridos_transporte
+- inscripciones
 - instalaciones
 - servicios
 - alumnos_servicios
@@ -202,6 +206,41 @@ DELETE /api/galeria/:id
 
 POST /api/contacto
 GET  /api/contacto
+
+GET  /api/materias
+POST /api/materias
+PUT  /api/materias/:id
+DELETE /api/materias/:id
+
+GET  /api/deportes
+POST /api/deportes
+PUT  /api/deportes/:id
+DELETE /api/deportes/:id
+
+GET  /api/grupos-deporte
+POST /api/grupos-deporte
+
+GET  /api/recorridos
+POST /api/recorridos
+
+GET  /api/inscripciones
+POST /api/inscripciones
+DELETE /api/inscripciones/:id
+
+GET  /api/asistencias
+POST /api/asistencias
+GET  /api/asistencias/alumno/:id
+
+GET  /api/padres/hijos?email=
+
+GET  /api/reportes/alumno/:id
+GET  /api/reportes/docente/:id
+GET  /api/reportes/alumnos-por-deporte
+GET  /api/reportes/alumnos-por-deporte-nivel
+GET  /api/reportes/alumnos-por-deporte-detalle
+GET  /api/reportes/alumnos-por-recorrido
+GET  /api/reportes/alumnos-por-materia
+GET  /api/reportes/docentes-por-nivel
 ```
 
 ## Validacion
