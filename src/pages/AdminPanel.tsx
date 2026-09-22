@@ -2,6 +2,7 @@ import { FormEvent, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { ArrowLeft, Database, PlusCircle, RefreshCw } from 'lucide-react';
 import { Button } from '../components/Button';
+import { ReportesViewer } from '../components/ReportesViewer';
 import { api } from '../services/api';
 import type {
   Alumno,
@@ -360,7 +361,7 @@ export function AdminPanel() {
           </AdminList>
         </section>
 
-        <ReportesSection />
+        <ReportesViewer alumnos={data.alumnos} docentes={data.docentes} />
         <AsistenciasSection />
       </main>
     </div>
@@ -397,68 +398,6 @@ function AdminItem({ title, subtitle, children }: { title: string; subtitle: str
   );
 }
 
-function ReportesSection() {
-  const [tipo, setTipo] = useState('alumnos-por-deporte');
-  const [idConsulta, setIdConsulta] = useState('');
-  const [salida, setSalida] = useState<unknown>(null);
-  const [estado, setEstado] = useState('');
-
-  async function cargar() {
-    setEstado('Cargando...');
-    try {
-      if (tipo === 'alumno' || tipo === 'docente') {
-        if (!idConsulta) {
-          setEstado('Ingresa un id.');
-          return;
-        }
-        setSalida(tipo === 'alumno' ? await api.getReporteAlumno(Number(idConsulta)) : await api.getReporteDocente(Number(idConsulta)));
-      } else if (tipo === 'alumnos-por-deporte') {
-        setSalida(await api.getAlumnosPorDeporte());
-      } else if (tipo === 'alumnos-por-deporte-nivel') {
-        setSalida(await api.getAlumnosPorDeporteNivel());
-      } else if (tipo === 'alumnos-por-deporte-detalle') {
-        setSalida(await api.getAlumnosPorDeporteDetalle());
-      } else if (tipo === 'alumnos-por-recorrido') {
-        setSalida(await api.getAlumnosPorRecorrido());
-      } else if (tipo === 'alumnos-por-materia') {
-        setSalida(await api.getAlumnosPorMateria());
-      } else if (tipo === 'docentes-por-nivel') {
-        setSalida(await api.getDocentesPorNivel());
-      }
-      setEstado('Listo.');
-    } catch (error) {
-      setEstado(error instanceof Error ? error.message : 'No se pudo generar el reporte.');
-    }
-  }
-
-  useEffect(() => {
-    cargar();
-  }, [tipo]);
-
-  return (
-    <section className="admin-section reportes-section">
-      <h2>Reportes</h2>
-      <div className="reportes-controls">
-        <select value={tipo} onChange={(event) => setTipo(event.target.value)}>
-          <option value="alumnos-por-deporte">Alumnos por deporte</option>
-          <option value="alumnos-por-deporte-nivel">Alumnos por deporte y nivel</option>
-          <option value="alumnos-por-deporte-detalle">Alumnos por deporte, horario y profesor</option>
-          <option value="alumnos-por-recorrido">Alumnos por recorrido de transporte</option>
-          <option value="alumnos-por-materia">Alumnos por materia</option>
-          <option value="docentes-por-nivel">Docentes por nivel</option>
-          <option value="alumno">Reporte por alumno</option>
-          <option value="docente">Reporte por docente</option>
-        </select>
-        {(tipo === 'alumno' || tipo === 'docente') && (
-          <input placeholder="ID" value={idConsulta} onChange={(event) => setIdConsulta(event.target.value)} />
-        )}
-        <Button type="button" onClick={cargar}>Generar</Button>
-        <span className="admin-status">{estado}</span>
-      </div>
-      {salida !== null && <pre className="reporte-json">{JSON.stringify(salida, null, 2)}</pre>}
-    </section>
-  );
-}
 
 function AsistenciasSection() {
   const [cursos, setCursos] = useState<Curso[]>([]);
