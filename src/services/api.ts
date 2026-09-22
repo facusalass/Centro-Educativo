@@ -1,6 +1,7 @@
 import type {
   ActividadEscolar,
   Alumno,
+  AlumnosPorCurso,
   AlumnosPorDeporte,
   AlumnosPorDeporteDetalle,
   AlumnosPorDeporteNivel,
@@ -131,6 +132,18 @@ export const api = {
   getAlumnosPorRecorrido: () => request<AlumnosPorRecorrido>('/reportes/alumnos-por-recorrido'),
   getAlumnosPorMateria: () => request<AlumnosPorMateria>('/reportes/alumnos-por-materia'),
   getDocentesPorNivel: () => request<DocentesPorNivel>('/reportes/docentes-por-nivel'),
+  getAlumnosPorCurso: () => request<AlumnosPorCurso>('/reportes/alumnos-por-curso'),
+
+  eliminarAlumno: (id: number) => del<{ ok: boolean }>(`/alumnos/${id}`),
+  eliminarDocente: (id: number) => del<{ ok: boolean }>(`/docentes/${id}`),
+  eliminarCurso: (id: number) => del<{ ok: boolean }>(`/cursos/${id}`),
+  eliminarUsuario: (id: number) => del<{ ok: boolean }>(`/usuarios/${id}`),
+  crearAsignacion: (data: Partial<AsignacionDocente>) => post<AsignacionDocente, Partial<AsignacionDocente>>('/asignaciones-docentes', data),
+  eliminarAsignacion: (id: number) => del<{ ok: boolean }>(`/asignaciones-docentes/${id}`),
+  eliminarMateria: (id: number) => del<{ ok: boolean }>(`/materias/${id}`),
+  eliminarDeporte: (id: number) => del<{ ok: boolean }>(`/deportes/${id}`),
+  eliminarGrupoDeporte: (id: number) => del<{ ok: boolean }>(`/grupos-deporte/${id}`),
+  eliminarRecorrido: (id: number) => del<{ ok: boolean }>(`/recorridos/${id}`),
 
   getAsistencias: (filtros: { fecha?: string; nivel?: string; curso?: string; division?: string }) => {
     const query = new URLSearchParams();

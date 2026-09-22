@@ -1064,6 +1064,36 @@ app.get('/api/reportes/docentes-por-nivel', async (_req, res) => {
   }
 });
 
+app.get('/api/reportes/alumnos-por-curso', async (_req, res) => {
+  try {
+    const data = await loadReportData();
+    const resultado = data.cursos.map((curso) => {
+      const alumnosDelCurso = data.alumnos.filter(
+        (alumno) => alumno.nivel === curso.nivel && alumno.curso === curso.anio && alumno.division === curso.division,
+      );
+      return {
+        nivel: curso.nivel,
+        anio: curso.anio,
+        division: curso.division,
+        turno: curso.turno,
+        alumnos: alumnosDelCurso.map((alumno) => ({
+          id: alumno.id,
+          legajo: alumno.legajo,
+          apellido: alumno.apellido,
+          nombre: alumno.nombre,
+          dni: alumno.dni,
+          email: alumno.email,
+          telefono: alumno.telefono,
+        })),
+      };
+    });
+    res.json(resultado);
+  } catch (error) {
+    sendDbError(res, error);
+  }
+});
+
+
 app.get('/api/asistencias', async (req, res) => {
   try {
     const { fecha, nivel, curso, division } = req.query;

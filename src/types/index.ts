@@ -190,6 +190,23 @@ export type DocentesPorNivel = Array<{
   docentes: Array<{ profesor: string | null; materias: string[]; cursos: Array<string | null> }>;
 }>;
 
+export type AlumnosPorCurso = Array<{
+  nivel: string;
+  anio: string;
+  division: string;
+  turno: string;
+  alumnos: Array<{
+    id: number;
+    legajo: string;
+    apellido: string;
+    nombre: string;
+    dni: string;
+    email: string;
+    telefono: string;
+  }>;
+}>;
+
+
 export type Curso = {
   id: number;
   nivel: string;
