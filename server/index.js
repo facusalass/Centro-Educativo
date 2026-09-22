@@ -549,6 +549,17 @@ app.put('/api/usuarios/:id', async (req, res) => {
   }
 });
 
+app.delete('/api/usuarios/:id', async (req, res) => {
+  try {
+    const result = await db.run('DELETE FROM usuarios_acceso WHERE id = ?', [req.params.id]);
+    if (!result.changes) return res.status(404).json({ error: 'Usuario no encontrado.' });
+    res.json({ ok: true });
+  } catch (error) {
+    sendDbError(res, error);
+  }
+});
+
+
 app.post('/api/login-demo', async (req, res) => {
   const { email, password } = req.body;
   if (!email || !password) return res.status(400).json({ error: 'Email y password son obligatorios.' });

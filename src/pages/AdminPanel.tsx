@@ -6,6 +6,7 @@ import { ReportesViewer } from '../components/ReportesViewer';
 import { api } from '../services/api';
 import type {
   Alumno,
+  AsignacionDocente,
   Asistencia,
   AsistenciaRegistro,
   Curso,
@@ -32,6 +33,7 @@ type AdminData = {
   alumnos: Alumno[];
   docentes: Docente[];
   cursos: Curso[];
+  asignaciones: AsignacionDocente[];
   servicios: Servicio[];
   instalaciones: Instalacion[];
   noticias: Noticia[];
@@ -50,6 +52,7 @@ const emptyData: AdminData = {
   alumnos: [],
   docentes: [],
   cursos: [],
+  asignaciones: [],
   servicios: [],
   instalaciones: [],
   noticias: [],
@@ -75,17 +78,20 @@ export function AdminPanel() {
   const [grupo, setGrupo] = useState({ deporte_id: '', nivel: 'Primario', dia: '', horario: '', profesor_id: '' });
   const [recorrido, setRecorrido] = useState({ nombre: '', descripcion: '', horario: '', zona: '' });
   const [inscripcion, setInscripcion] = useState({ alumno_id: '', tipo: 'deporte' as InscripcionTipo, grupo_deporte_id: '', recorrido_id: '' });
+  const [asignacion, setAsignacion] = useState({ docente_id: '', curso_id: '', materia: '', dia: 'Lunes', horario: '08:00 - 09:30' });
+  const [nuevoUsuario, setNuevoUsuario] = useState({ nombre: '', email: '', password_demo: '', rol: 'docente' });
 
   async function loadData() {
     setStatus('Cargando datos...');
     try {
-      const [solicitudes, opiniones, postulaciones, alumnos, docentes, cursos, servicios, instalaciones, noticias, usuarios, materias, deportes, grupos, recorridos, inscripciones] = await Promise.all([
+      const [solicitudes, opiniones, postulaciones, alumnos, docentes, cursos, asignaciones, servicios, instalaciones, noticias, usuarios, materias, deportes, grupos, recorridos, inscripciones] = await Promise.all([
         api.getSolicitudes(),
         api.getOpiniones(true),
         api.getPostulaciones(),
         api.getAlumnos(),
         api.getDocentes(),
         api.getCursos(),
+        api.getAsignaciones(),
         api.getServicios(),
         api.getInstalaciones(),
         api.getNoticias(true),
@@ -96,7 +102,7 @@ export function AdminPanel() {
         api.getRecorridos(),
         api.getInscripciones(),
       ]);
-      setData({ solicitudes, opiniones, postulaciones, alumnos, docentes, cursos, servicios, instalaciones, noticias, usuarios, materias, deportes, grupos, recorridos, inscripciones });
+      setData({ solicitudes, opiniones, postulaciones, alumnos, docentes, cursos, asignaciones, servicios, instalaciones, noticias, usuarios, materias, deportes, grupos, recorridos, inscripciones });
       setStatus('Datos actualizados.');
     } catch (error) {
       setStatus(error instanceof Error ? error.message : 'No se pudieron cargar los datos.');
@@ -269,6 +275,37 @@ export function AdminPanel() {
               )}
               <Button type="submit">Guardar</Button>
             </form>
+
+            <form onSubmit={(event) => submitAndReload(event, () => api.crearAsignacion({ docente_id: Number(asignacion.docente_id), curso_id: Number(asignacion.curso_id), materia: asignacion.materia, dia: asignacion.dia, horario: asignacion.horario }), 'Asignando materia a docente...')}>
+              <h3><PlusCircle size={17} /> Asignar materia a docente</h3>
+              <select required value={asignacion.docente_id} onChange={(event) => setAsignacion({ ...asignacion, docente_id: event.target.value })}>
+                <option value="">Docente</option>
+                {data.docentes.map((item) => <option key={item.id} value={item.id}>{item.apellido}, {item.nombre}</option>)}
+              </select>
+              <select required value={asignacion.curso_id} onChange={(event) => setAsignacion({ ...asignacion, curso_id: event.target.value })}>
+                <option value="">Curso</option>
+                {data.cursos.map((item) => <option key={item.id} value={item.id}>{item.nivel} - {item.anio} "{item.division}"</option>)}
+              </select>
+              <input required placeholder="Materia (ej. Matemática)" value={asignacion.materia} onChange={(event) => setAsignacion({ ...asignacion, materia: event.target.value })} />
+              <input placeholder="Día (ej. Lunes)" value={asignacion.dia} onChange={(event) => setAsignacion({ ...asignacion, dia: event.target.value })} />
+              <input placeholder="Horario (ej. 08:00 - 09:30)" value={asignacion.horario} onChange={(event) => setAsignacion({ ...asignacion, horario: event.target.value })} />
+              <Button type="submit">Guardar</Button>
+            </form>
+
+            <form onSubmit={(event) => submitAndReload(event, () => api.crearUsuario({ nombre: nuevoUsuario.nombre, email: nuevoUsuario.email, password_demo: nuevoUsuario.password_demo, rol: nuevoUsuario.rol as any }), 'Creando usuario...')}>
+              <h3><PlusCircle size={17} /> Crear usuario demo</h3>
+              <input required placeholder="Nombre completo" value={nuevoUsuario.nombre} onChange={(event) => setNuevoUsuario({ ...nuevoUsuario, nombre: event.target.value })} />
+              <input required type="email" placeholder="Email" value={nuevoUsuario.email} onChange={(event) => setNuevoUsuario({ ...nuevoUsuario, email: event.target.value })} />
+              <input required type="password" placeholder="Password demo" value={nuevoUsuario.password_demo} onChange={(event) => setNuevoUsuario({ ...nuevoUsuario, password_demo: event.target.value })} />
+              <select value={nuevoUsuario.rol} onChange={(event) => setNuevoUsuario({ ...nuevoUsuario, rol: event.target.value })}>
+                <option value="admin">Administrador</option>
+                <option value="docente">Docente</option>
+                <option value="padre">Padre / Tutor</option>
+                <option value="alumno">Alumno</option>
+                <option value="personal">Personal</option>
+              </select>
+              <Button type="submit">Guardar</Button>
+            </form>
           </div>
         </section>
 
@@ -301,15 +338,43 @@ export function AdminPanel() {
           </AdminList>
 
           <AdminList title="Alumnos">
-            {data.alumnos.map((item) => <AdminItem key={item.id} title={`${item.nombre} ${item.apellido}`} subtitle={`${item.nivel} ${item.curso} ${item.division}`} />)}
+            {data.alumnos.map((item) => (
+              <AdminItem key={item.id} title={`${item.nombre} ${item.apellido}`} subtitle={`${item.nivel} ${item.curso} ${item.division} - Legajo: ${item.legajo || '—'}`}>
+                <button onClick={() => api.eliminarAlumno(item.id).then(loadData)}>Eliminar</button>
+              </AdminItem>
+            ))}
           </AdminList>
 
           <AdminList title="Docentes">
-            {data.docentes.map((item) => <AdminItem key={item.id} title={`${item.nombre} ${item.apellido}`} subtitle={item.especialidad} />)}
+            {data.docentes.map((item) => (
+              <AdminItem key={item.id} title={`${item.nombre} ${item.apellido}`} subtitle={`${item.especialidad} - ${item.email}`}>
+                <button onClick={() => api.eliminarDocente(item.id).then(loadData)}>Eliminar</button>
+              </AdminItem>
+            ))}
           </AdminList>
 
           <AdminList title="Cursos">
-            {data.cursos.map((item) => <AdminItem key={item.id} title={`${item.nivel} ${item.anio} ${item.division}`} subtitle={item.turno} />)}
+            {data.cursos.map((item) => (
+              <AdminItem key={item.id} title={`${item.nivel} ${item.anio} ${item.division}`} subtitle={item.turno}>
+                <button onClick={() => api.eliminarCurso(item.id).then(loadData)}>Eliminar</button>
+              </AdminItem>
+            ))}
+          </AdminList>
+
+          <AdminList title="Asignaciones docentes">
+            {data.asignaciones.map((item) => {
+              const doc = data.docentes.find((d) => d.id === item.docente_id);
+              const cur = data.cursos.find((c) => c.id === item.curso_id);
+              return (
+                <AdminItem
+                  key={item.id}
+                  title={`${item.materia} — ${doc ? `${doc.apellido}, ${doc.nombre}` : 'Docente #' + item.docente_id}`}
+                  subtitle={`${cur ? `${cur.nivel} ${cur.anio} "${cur.division}"` : 'Curso #' + item.curso_id} (${item.dia} ${item.horario})`}
+                >
+                  <button onClick={() => api.eliminarAsignacion(item.id).then(loadData)}>Eliminar</button>
+                </AdminItem>
+              );
+            })}
           </AdminList>
 
           <AdminList title="Servicios">
@@ -325,27 +390,43 @@ export function AdminPanel() {
           </AdminList>
 
           <AdminList title="Usuarios demo">
-            {data.usuarios.map((item) => <AdminItem key={item.id} title={item.email} subtitle={`${item.rol} - ${item.estado}`} />)}
+            {data.usuarios.map((item) => (
+              <AdminItem key={item.id} title={item.email} subtitle={`${item.rol} - ${item.estado}`}>
+                <button onClick={() => api.eliminarUsuario(item.id).then(loadData)}>Eliminar</button>
+              </AdminItem>
+            ))}
           </AdminList>
 
           <AdminList title="Materias">
-            {data.materias.map((item) => <AdminItem key={item.id} title={item.nombre} subtitle={item.descripcion} />)}
+            {data.materias.map((item) => (
+              <AdminItem key={item.id} title={item.nombre} subtitle={item.descripcion}>
+                <button onClick={() => api.eliminarMateria(item.id).then(loadData)}>Eliminar</button>
+              </AdminItem>
+            ))}
           </AdminList>
 
           <AdminList title="Deportes">
             {data.deportes.map((item) => (
-              <AdminItem key={item.id} title={item.nombre} subtitle={`Profesor id: ${item.profesor_id ?? 'sin asignar'}`} />
+              <AdminItem key={item.id} title={item.nombre} subtitle={`Profesor id: ${item.profesor_id ?? 'sin asignar'}`}>
+                <button onClick={() => api.eliminarDeporte(item.id).then(loadData)}>Eliminar</button>
+              </AdminItem>
             ))}
           </AdminList>
 
           <AdminList title="Grupos deportivos">
             {data.grupos.map((item) => (
-              <AdminItem key={item.id} title={`Deporte #${item.deporte_id} - ${item.nivel}`} subtitle={`${item.dia} ${item.horario}`} />
+              <AdminItem key={item.id} title={`Deporte #${item.deporte_id} - ${item.nivel}`} subtitle={`${item.dia} ${item.horario}`}>
+                <button onClick={() => api.eliminarGrupoDeporte(item.id).then(loadData)}>Eliminar</button>
+              </AdminItem>
             ))}
           </AdminList>
 
           <AdminList title="Recorridos de transporte">
-            {data.recorridos.map((item) => <AdminItem key={item.id} title={item.nombre} subtitle={`${item.zona} - ${item.horario}`} />)}
+            {data.recorridos.map((item) => (
+              <AdminItem key={item.id} title={item.nombre} subtitle={`${item.zona} - ${item.horario}`}>
+                <button onClick={() => api.eliminarRecorrido(item.id).then(loadData)}>Eliminar</button>
+              </AdminItem>
+            ))}
           </AdminList>
 
           <AdminList title="Inscripciones">
