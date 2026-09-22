@@ -109,8 +109,12 @@ export function AdminPanel() {
   async function submitAndReload(event: FormEvent<HTMLFormElement>, action: () => Promise<unknown>, message: string) {
     event.preventDefault();
     setStatus(message);
-    await action();
-    await loadData();
+    try {
+      await action();
+      await loadData();
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : 'No se pudo completar la accion.');
+    }
   }
 
   return (
@@ -207,18 +211,27 @@ export function AdminPanel() {
             <form onSubmit={(event) => submitAndReload(event, () => api.crearDeporte({ nombre: deporte.nombre, descripcion: deporte.descripcion, profesor_id: deporte.profesor_id ? Number(deporte.profesor_id) : null }), 'Creando deporte...')}>
               <h3><PlusCircle size={17} /> Crear deporte</h3>
               <input required placeholder="Nombre" value={deporte.nombre} onChange={(event) => setDeporte({ ...deporte, nombre: event.target.value })} />
-              <input placeholder="Profesor responsable (id)" value={deporte.profesor_id} onChange={(event) => setDeporte({ ...deporte, profesor_id: event.target.value })} />
+               <select value={deporte.profesor_id} onChange={(event) => setDeporte({ ...deporte, profesor_id: event.target.value })}>
+                 <option value="">Profesor responsable</option>
+                 {data.docentes.map((item) => <option key={item.id} value={item.id}>{item.apellido}, {item.nombre}</option>)}
+               </select>
               <textarea placeholder="Descripcion" rows={2} value={deporte.descripcion} onChange={(event) => setDeporte({ ...deporte, descripcion: event.target.value })} />
               <Button type="submit">Guardar</Button>
             </form>
 
             <form onSubmit={(event) => submitAndReload(event, () => api.crearGrupoDeporte({ deporte_id: Number(grupo.deporte_id), nivel: grupo.nivel, dia: grupo.dia, horario: grupo.horario, profesor_id: grupo.profesor_id ? Number(grupo.profesor_id) : null }), 'Creando grupo deportivo...')}>
               <h3><PlusCircle size={17} /> Crear grupo deportivo</h3>
-              <input required placeholder="Deporte (id)" value={grupo.deporte_id} onChange={(event) => setGrupo({ ...grupo, deporte_id: event.target.value })} />
+               <select required value={grupo.deporte_id} onChange={(event) => setGrupo({ ...grupo, deporte_id: event.target.value })}>
+                 <option value="">Deporte</option>
+                 {data.deportes.map((item) => <option key={item.id} value={item.id}>{item.nombre}</option>)}
+               </select>
               <input required placeholder="Nivel" value={grupo.nivel} onChange={(event) => setGrupo({ ...grupo, nivel: event.target.value })} />
               <input placeholder="Dia" value={grupo.dia} onChange={(event) => setGrupo({ ...grupo, dia: event.target.value })} />
               <input placeholder="Horario (ej. 10:00 - 11:30)" value={grupo.horario} onChange={(event) => setGrupo({ ...grupo, horario: event.target.value })} />
-              <input placeholder="Profesor a cargo (id)" value={grupo.profesor_id} onChange={(event) => setGrupo({ ...grupo, profesor_id: event.target.value })} />
+               <select value={grupo.profesor_id} onChange={(event) => setGrupo({ ...grupo, profesor_id: event.target.value })}>
+                 <option value="">Profesor a cargo</option>
+                 {data.docentes.map((item) => <option key={item.id} value={item.id}>{item.apellido}, {item.nombre}</option>)}
+               </select>
               <Button type="submit">Guardar</Button>
             </form>
 
@@ -232,17 +245,26 @@ export function AdminPanel() {
 
             <form onSubmit={(event) => submitAndReload(event, () => api.crearInscripcion({ alumno_id: Number(inscripcion.alumno_id), tipo: inscripcion.tipo, grupo_deporte_id: inscripcion.grupo_deporte_id ? Number(inscripcion.grupo_deporte_id) : null, recorrido_id: inscripcion.recorrido_id ? Number(inscripcion.recorrido_id) : null }), 'Creando inscripcion...')}>
               <h3><PlusCircle size={17} /> Crear inscripcion</h3>
-              <input required placeholder="Alumno (id)" value={inscripcion.alumno_id} onChange={(event) => setInscripcion({ ...inscripcion, alumno_id: event.target.value })} />
+               <select required value={inscripcion.alumno_id} onChange={(event) => setInscripcion({ ...inscripcion, alumno_id: event.target.value, grupo_deporte_id: '', recorrido_id: '' })}>
+                 <option value="">Alumno</option>
+                 {data.alumnos.map((item) => <option key={item.id} value={item.id}>{item.apellido}, {item.nombre} ({item.nivel})</option>)}
+               </select>
               <select value={inscripcion.tipo} onChange={(event) => setInscripcion({ ...inscripcion, tipo: event.target.value as InscripcionTipo })}>
                 <option value="deporte">Deporte</option>
                 <option value="transporte">Transporte</option>
                 <option value="comedor">Comedor</option>
               </select>
               {inscripcion.tipo === 'deporte' && (
-                <input required placeholder="Grupo deportivo (id)" value={inscripcion.grupo_deporte_id} onChange={(event) => setInscripcion({ ...inscripcion, grupo_deporte_id: event.target.value })} />
+                 <select required value={inscripcion.grupo_deporte_id} onChange={(event) => setInscripcion({ ...inscripcion, grupo_deporte_id: event.target.value })}>
+                   <option value="">Grupo deportivo</option>
+                   {data.grupos.filter((item) => !inscripcion.alumno_id || item.nivel === data.alumnos.find((alumno) => String(alumno.id) === inscripcion.alumno_id)?.nivel).map((item) => <option key={item.id} value={item.id}>{data.deportes.find((deporte) => deporte.id === item.deporte_id)?.nombre ?? 'Deporte'} - {item.nivel} ({item.dia} {item.horario})</option>)}
+                 </select>
               )}
               {inscripcion.tipo === 'transporte' && (
-                <input required placeholder="Recorrido (id)" value={inscripcion.recorrido_id} onChange={(event) => setInscripcion({ ...inscripcion, recorrido_id: event.target.value })} />
+                 <select required value={inscripcion.recorrido_id} onChange={(event) => setInscripcion({ ...inscripcion, recorrido_id: event.target.value })}>
+                   <option value="">Recorrido</option>
+                   {data.recorridos.map((item) => <option key={item.id} value={item.id}>{item.nombre} - {item.zona}</option>)}
+                 </select>
               )}
               <Button type="submit">Guardar</Button>
             </form>

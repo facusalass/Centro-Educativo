@@ -31,6 +31,8 @@ import type {
   SolicitudInscripcion,
   UsuarioAcceso,
   Nivel,
+  RegistroPadre,
+  RegistroHijo,
 } from '../types';
 
 const API_URL = import.meta.env.VITE_API_URL ?? (import.meta.env.PROD ? '/api' : 'http://localhost:3001/api');
@@ -96,6 +98,8 @@ export const api = {
   crearGaleriaImagen: (data: Partial<GaleriaImagen>) => post<GaleriaImagen, Partial<GaleriaImagen>>('/galeria', data),
   getUsuarios: () => request<UsuarioAcceso[]>('/usuarios'),
   crearUsuario: (data: Partial<UsuarioAcceso> & { password_demo: string }) => post<UsuarioAcceso, Partial<UsuarioAcceso> & { password_demo: string }>('/usuarios', data),
+  registrarPadre: (data: RegistroPadre) => post<{ usuario: UsuarioAcceso; hijo: Alumno }, RegistroPadre>('/padres/registro', data),
+  agregarHijo: (data: RegistroHijo) => post<Alumno, RegistroHijo>('/padres/hijos', data),
   loginDemo: (email: string, password: string) =>
     post<{ usuario: UsuarioAcceso }, { email: string; password: string }>('/login-demo', { email, password }),
   enviarContacto: (data: ContactoMensaje) => post<ContactoMensaje, ContactoMensaje>('/contacto', data),
@@ -116,6 +120,8 @@ export const api = {
   crearInscripcion: (data: { alumno_id: number; tipo: InscripcionTipo; grupo_deporte_id?: number | null; recorrido_id?: number | null }) =>
     post<Inscripcion, { alumno_id: number; tipo: InscripcionTipo; grupo_deporte_id?: number | null; recorrido_id?: number | null }>('/inscripciones', data),
   eliminarInscripcion: (id: number) => del<{ ok: boolean }>(`/inscripciones/${id}`),
+  desinscribirHijo: (usuarioId: number, alumnoId: number, inscripcionId: number) =>
+    del<{ ok: boolean }>(`/padres/hijos/${alumnoId}/inscripciones/${inscripcionId}?usuario_id=${usuarioId}`),
 
   getReporteAlumno: (id: number) => request<ReporteAlumno>(`/reportes/alumno/${id}`),
   getReporteDocente: (id: number) => request<ReporteDocente>(`/reportes/docente/${id}`),
@@ -137,5 +143,5 @@ export const api = {
   registrarAsistencias: (data: { fecha: string; registros: { alumno_id: number; presente: boolean; observacion?: string }[] }) =>
     post<unknown, { fecha: string; registros: { alumno_id: number; presente: boolean; observacion?: string }[] }>('/asistencias', data),
   getAsistenciaAlumno: (id: number) => request<ResumenAsistencia>(`/asistencias/alumno/${id}`),
-  getHijos: (email: string) => request<Alumno[]>(`/padres/hijos?email=${encodeURIComponent(email)}`),
+  getHijos: (email: string, usuarioId?: number) => request<Alumno[]>(`/padres/hijos?email=${encodeURIComponent(email)}${usuarioId ? `&usuario_id=${usuarioId}` : ''}`),
 };

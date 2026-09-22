@@ -445,6 +445,98 @@ app.post('/api/usuarios', async (req, res) => {
   }
 });
 
+app.post('/api/padres/registro', async (req, res) => {
+  const data = normalizeBody(req.body);
+  const missing = requireFields(data, [
+    'nombre_padre',
+    'email',
+    'password',
+    'nombre_hijo',
+    'apellido_hijo',
+    'nivel',
+  ]);
+  if (missing.length > 0) {
+    return res.status(400).json({ error: `Faltan campos obligatorios: ${missing.join(', ')}.` });
+  }
+  if (!emailRegex.test(data.email)) return res.status(400).json({ error: 'Email invalido.' });
+  if (data.password.length < 6) return res.status(400).json({ error: 'La password debe tener al menos 6 caracteres.' });
+  if (!enrollmentLevels.has(data.nivel)) return res.status(400).json({ error: 'El nivel seleccionado no es valido.' });
+  const normalizedLevel = data.nivel.replace(/^Nivel\s+/, '');
+
+  try {
+    const existing = await db.get('SELECT id FROM usuarios_acceso WHERE email = ?', [data.email]);
+    if (existing) return res.status(409).json({ error: 'Ya existe una cuenta con ese email.' });
+
+    const parentId = await db.insert('usuarios_acceso', {
+      nombre: data.nombre_padre,
+      nombre_usuario: data.email.split('@')[0],
+      email: data.email,
+      password_demo: data.password,
+      rol: 'padre',
+      estado: 'activo',
+    });
+    const childId = await db.insert('alumnos', {
+      nombre: data.nombre_hijo,
+      apellido: data.apellido_hijo,
+      legajo: data.legajo_hijo ?? '',
+      dni: data.dni_hijo ?? '',
+      fecha_nacimiento: data.fecha_nacimiento_hijo ?? '',
+      domicilio: data.domicilio_hijo ?? '',
+      telefono: data.telefono_hijo ?? '',
+      email: data.email_hijo ?? '',
+      nivel: normalizedLevel,
+      curso: data.curso ?? '',
+      division: data.division ?? '',
+      tutor_nombre: data.nombre_padre,
+      tutor_email: data.email,
+      tutor_telefono: data.telefono_padre ?? '',
+      usuario_padre_id: parentId,
+      estado: 'activo',
+    });
+
+    const usuario = await db.get('SELECT id, nombre, nombre_usuario, email, rol, estado, referencia_id, created_at FROM usuarios_acceso WHERE id = ?', [parentId]);
+    res.status(201).json({ usuario, hijo: await getById('alumnos', childId) });
+  } catch (error) {
+    sendDbError(res, error);
+  }
+});
+
+app.post('/api/padres/hijos', async (req, res) => {
+  const data = normalizeBody(req.body);
+  const parentId = Number(data.usuario_padre_id);
+  const missing = requireFields(data, ['nombre_hijo', 'apellido_hijo', 'nivel']);
+  if (!parentId || missing.length > 0) {
+    return res.status(400).json({ error: `Faltan campos obligatorios: ${missing.concat(!parentId ? ['usuario_padre_id'] : []).join(', ')}.` });
+  }
+  if (!enrollmentLevels.has(data.nivel)) return res.status(400).json({ error: 'El nivel seleccionado no es valido.' });
+
+  try {
+    const parent = await db.get("SELECT id, nombre, email FROM usuarios_acceso WHERE id = ? AND rol = 'padre' AND estado = 'activo'", [parentId]);
+    if (!parent) return res.status(404).json({ error: 'La cuenta familiar no existe o no esta activa.' });
+    const childId = await db.insert('alumnos', {
+      nombre: data.nombre_hijo,
+      apellido: data.apellido_hijo,
+      legajo: data.legajo_hijo ?? '',
+      dni: data.dni_hijo ?? '',
+      fecha_nacimiento: data.fecha_nacimiento_hijo ?? '',
+      domicilio: data.domicilio_hijo ?? '',
+      telefono: data.telefono_hijo ?? '',
+      email: data.email_hijo ?? '',
+      nivel: data.nivel.replace(/^Nivel\s+/, ''),
+      curso: data.curso ?? '',
+      division: data.division ?? '',
+      tutor_nombre: parent.nombre,
+      tutor_email: parent.email,
+      tutor_telefono: data.telefono_padre ?? '',
+      usuario_padre_id: parent.id,
+      estado: 'activo',
+    });
+    res.status(201).json(await getById('alumnos', childId));
+  } catch (error) {
+    sendDbError(res, error);
+  }
+});
+
 app.put('/api/usuarios/:id', async (req, res) => {
   try {
     const data = selectFields(req.body, ['nombre', 'nombre_usuario', 'email', 'password_demo', 'rol', 'estado', 'referencia_id']);
@@ -592,6 +684,9 @@ async function createInscripcion(req, res) {
 
       const grupo = await db.get('SELECT * FROM grupos_deporte WHERE id = ?', [grupoDeporteId]);
       if (!grupo) return res.status(404).json({ error: 'Grupo deportivo no encontrado.' });
+      if (grupo.nivel !== alumno.nivel) {
+        return res.status(400).json({ error: 'El grupo deportivo no corresponde al nivel del alumno.' });
+      }
 
       const inscripcionesDeportivas = await db.all(
         "SELECT id, grupo_deporte_id FROM inscripciones WHERE alumno_id = ? AND tipo = 'deporte'",
@@ -1076,8 +1171,30 @@ app.get('/api/asistencias/alumno/:id', async (req, res) => {
 app.get('/api/padres/hijos', async (req, res) => {
   try {
     const email = req.query.email;
-    if (!email) return res.status(400).json({ error: 'email es obligatorio.' });
+    const usuarioId = req.query.usuario_id ? Number(req.query.usuario_id) : null;
+    if (!email && !usuarioId) return res.status(400).json({ error: 'email o usuario_id es obligatorio.' });
+    if (usuarioId) {
+      res.json(await db.all('SELECT * FROM alumnos WHERE usuario_padre_id = ? OR tutor_email = ? ORDER BY apellido, nombre', [usuarioId, email ?? '']));
+      return;
+    }
     res.json(await db.all('SELECT * FROM alumnos WHERE tutor_email = ? ORDER BY apellido, nombre', [email]));
+  } catch (error) {
+    sendDbError(res, error);
+  }
+});
+
+app.delete('/api/padres/hijos/:alumnoId/inscripciones/:inscripcionId', async (req, res) => {
+  const usuarioId = Number(req.query.usuario_id);
+  const alumnoId = Number(req.params.alumnoId);
+  const inscripcionId = Number(req.params.inscripcionId);
+  if (!usuarioId || !alumnoId || !inscripcionId) return res.status(400).json({ error: 'Los identificadores son obligatorios.' });
+
+  try {
+    const child = await db.get("SELECT id FROM alumnos WHERE id = ? AND usuario_padre_id = ? AND estado = 'activo'", [alumnoId, usuarioId]);
+    if (!child) return res.status(404).json({ error: 'El alumno no pertenece a esta cuenta familiar.' });
+    const result = await db.run('DELETE FROM inscripciones WHERE id = ? AND alumno_id = ?', [inscripcionId, alumnoId]);
+    if (!result.changes) return res.status(404).json({ error: 'Inscripcion no encontrada.' });
+    res.json({ ok: true });
   } catch (error) {
     sendDbError(res, error);
   }

@@ -10,6 +10,7 @@ import type {
   Deporte,
   GrupoDeporte,
   InscripcionTipo,
+  InscripcionDetalle,
   Instalacion,
   Noticia,
   RecorridoTransporte,
@@ -50,6 +51,18 @@ export function LoginDemoPage() {
   const [usuario, setUsuario] = useState<UsuarioAcceso | null>(null);
   const [roleData, setRoleData] = useState<RoleData>({});
   const [status, setStatus] = useState('');
+  const [showRegistration, setShowRegistration] = useState(false);
+  const [registration, setRegistration] = useState({
+    nombre_padre: '',
+    email: '',
+    password: '',
+    telefono_padre: '',
+    nombre_hijo: '',
+    apellido_hijo: '',
+    nivel: 'Nivel Inicial',
+    curso: '',
+    division: '',
+  });
 
   useEffect(() => {
     if (!usuario) return;
@@ -78,6 +91,19 @@ export function LoginDemoPage() {
       setStatus('');
     } catch (error) {
       setStatus(error instanceof Error ? error.message : 'No se pudo iniciar sesion.');
+    }
+  }
+
+  async function handleRegistration(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setStatus('Creando cuenta familiar y registrando alumno...');
+    try {
+      const response = await api.registrarPadre(registration);
+      setUsuario(response.usuario);
+      setStatus('Cuenta creada y alumno registrado correctamente.');
+      setShowRegistration(false);
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : 'No se pudo crear la cuenta familiar.');
     }
   }
 
@@ -115,19 +141,68 @@ export function LoginDemoPage() {
             </div>
           </section>
 
-          <form className="form-card login-card" onSubmit={handleSubmit}>
+          <form className="form-card login-card" onSubmit={showRegistration ? handleRegistration : handleSubmit}>
             <KeyRound size={32} />
-            <h2>Iniciar sesion</h2>
-            <label>
-              Email
-              <input required type="email" value={email} onChange={(event) => setEmail(event.target.value)} />
-            </label>
-            <label>
-              Password demo
-              <input required type="password" value={password} onChange={(event) => setPassword(event.target.value)} />
-            </label>
-            <Button type="submit">Ingresar</Button>
+            <h2>{showRegistration ? 'Crear cuenta familiar' : 'Iniciar sesion'}</h2>
+            {showRegistration ? (
+              <>
+                <label>
+                  Nombre del padre, madre o tutor
+                  <input required value={registration.nombre_padre} onChange={(event) => setRegistration({ ...registration, nombre_padre: event.target.value })} />
+                </label>
+                <label>
+                  Email
+                  <input required type="email" value={registration.email} onChange={(event) => setRegistration({ ...registration, email: event.target.value })} />
+                </label>
+                <label>
+                  Password
+                  <input required minLength={6} type="password" value={registration.password} onChange={(event) => setRegistration({ ...registration, password: event.target.value })} />
+                </label>
+                <label>
+                  Nombre del hijo
+                  <input required value={registration.nombre_hijo} onChange={(event) => setRegistration({ ...registration, nombre_hijo: event.target.value })} />
+                </label>
+                <label>
+                  Apellido del hijo
+                  <input required value={registration.apellido_hijo} onChange={(event) => setRegistration({ ...registration, apellido_hijo: event.target.value })} />
+                </label>
+                <label>
+                  Nivel
+                  <select value={registration.nivel} onChange={(event) => setRegistration({ ...registration, nivel: event.target.value })}>
+                    <option>Nivel Inicial</option>
+                    <option>Nivel Primario</option>
+                    <option>Nivel Secundario</option>
+                  </select>
+                </label>
+                <div className="form-row">
+                  <label>
+                    Curso
+                    <input value={registration.curso} onChange={(event) => setRegistration({ ...registration, curso: event.target.value })} />
+                  </label>
+                  <label>
+                    Division
+                    <input value={registration.division} onChange={(event) => setRegistration({ ...registration, division: event.target.value })} />
+                  </label>
+                </div>
+                <Button type="submit">Crear cuenta y registrar hijo</Button>
+              </>
+            ) : (
+              <>
+                <label>
+                  Email
+                  <input required type="email" value={email} onChange={(event) => setEmail(event.target.value)} />
+                </label>
+                <label>
+                  Password demo
+                  <input required type="password" value={password} onChange={(event) => setPassword(event.target.value)} />
+                </label>
+                <Button type="submit">Ingresar</Button>
+              </>
+            )}
             {status && <span className="form-status">{status}</span>}
+            <button className="text-button" type="button" onClick={() => { setShowRegistration(!showRegistration); setStatus(''); }}>
+              {showRegistration ? 'Ya tengo una cuenta' : 'Soy un padre nuevo: registrar cuenta e hijo'}
+            </button>
           </form>
         </main>
       ) : (
@@ -150,7 +225,7 @@ export function LoginDemoPage() {
                   setStatus('');
                 }}
               >
-                <LogOut size={18} /> Cambiar usuario
+                  <LogOut size={18} /> Cerrar sesión
               </Button>
             </div>
           </div>
@@ -275,18 +350,23 @@ function PadreDashboard({ usuario }: { usuario: UsuarioAcceso }) {
   const [recorridos, setRecorridos] = useState<RecorridoTransporte[]>([]);
   const [status, setStatus] = useState('Cargando...');
   const [form, setForm] = useState({ alumno_id: '', tipo: 'deporte' as InscripcionTipo, grupo_deporte_id: '', recorrido_id: '' });
+  const [inscripciones, setInscripciones] = useState<InscripcionDetalle[]>([]);
+  const [showAddChild, setShowAddChild] = useState(false);
+  const [childForm, setChildForm] = useState({ nombre_hijo: '', apellido_hijo: '', nivel: 'Nivel Inicial', curso: '', division: '' });
 
   async function cargar() {
-    const [hijosData, gruposData, deportesData, recorridosData] = await Promise.all([
-      api.getHijos(usuario.email),
+    const [hijosData, gruposData, deportesData, recorridosData, inscripcionesData] = await Promise.all([
+      api.getHijos(usuario.email, usuario.id),
       api.getGruposDeporte(),
       api.getDeportes(),
       api.getRecorridos(),
+      api.getInscripciones(),
     ]);
     setHijos(hijosData);
     setGrupos(gruposData);
     setDeportes(deportesData);
     setRecorridos(recorridosData);
+    setInscripciones(inscripcionesData.filter((inscripcion) => hijosData.some((hijo) => hijo.id === inscripcion.alumno_id)));
 
     const mapa: Record<number, ReporteAlumno> = {};
     for (const hijo of hijosData) {
@@ -318,6 +398,34 @@ function PadreDashboard({ usuario }: { usuario: UsuarioAcceso }) {
     }
   }
 
+  async function agregarHijo(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setStatus('Registrando hijo...');
+    try {
+      await api.agregarHijo({ ...childForm, usuario_padre_id: usuario.id });
+      await cargar();
+      setChildForm({ nombre_hijo: '', apellido_hijo: '', nivel: 'Nivel Inicial', curso: '', division: '' });
+      setShowAddChild(false);
+      setStatus('Hijo registrado correctamente.');
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : 'No se pudo registrar al hijo.');
+    }
+  }
+
+  async function desinscribir(inscripcion: InscripcionDetalle) {
+    setStatus('Revirtiendo inscripcion...');
+    try {
+      await api.desinscribirHijo(usuario.id, inscripcion.alumno_id, inscripcion.id);
+      await cargar();
+      setStatus('Inscripcion cancelada y cambio revertido.');
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : 'No se pudo cancelar la inscripcion.');
+    }
+  }
+
+  const selectedChild = hijos.find((hijo) => String(hijo.id) === form.alumno_id);
+  const availableGroups = selectedChild ? grupos.filter((grupo) => grupo.nivel === selectedChild.nivel) : grupos;
+
   return (
     <div>
       <div className="role-grid">
@@ -338,14 +446,64 @@ function PadreDashboard({ usuario }: { usuario: UsuarioAcceso }) {
         })}
       </div>
 
+      <div className="role-grid">
+        {inscripciones.map((inscripcion) => (
+          <article className="role-card" key={inscripcion.id}>
+            <BookOpen size={24} />
+            <h2>Inscripcion activa</h2>
+            <p>
+              {inscripcion.alumno?.nombre} {inscripcion.alumno?.apellido}: {' '}
+              {inscripcion.tipo === 'deporte'
+                ? `${inscripcion.deporte?.nombre ?? 'Deporte'} - ${inscripcion.grupo?.dia ?? ''} ${inscripcion.grupo?.horario ?? ''}`
+                : inscripcion.tipo === 'transporte'
+                  ? inscripcion.recorrido?.nombre ?? 'Transporte'
+                  : 'Comedor'}
+            </p>
+            <Button variant="outline" type="button" onClick={() => desinscribir(inscripcion)}>Desinscribir</Button>
+          </article>
+        ))}
+      </div>
+
       {hijos.length === 0 && !status && <p className="form-status">No hay hijos asociados a este usuario.</p>}
+
+      <button className="text-button" type="button" onClick={() => setShowAddChild(!showAddChild)}>
+        {showAddChild ? 'Cancelar alta de hijo' : 'Registrar otro hijo'}
+      </button>
+
+      {showAddChild && (
+        <form className="form-card" onSubmit={agregarHijo}>
+          <PlusCircle size={24} />
+          <h2>Registrar hijo</h2>
+          <label>
+            Nombre
+            <input required value={childForm.nombre_hijo} onChange={(event) => setChildForm({ ...childForm, nombre_hijo: event.target.value })} />
+          </label>
+          <label>
+            Apellido
+            <input required value={childForm.apellido_hijo} onChange={(event) => setChildForm({ ...childForm, apellido_hijo: event.target.value })} />
+          </label>
+          <label>
+            Nivel
+            <select value={childForm.nivel} onChange={(event) => setChildForm({ ...childForm, nivel: event.target.value })}>
+              <option>Nivel Inicial</option>
+              <option>Nivel Primario</option>
+              <option>Nivel Secundario</option>
+            </select>
+          </label>
+          <div className="form-row">
+            <label>Curso<input value={childForm.curso} onChange={(event) => setChildForm({ ...childForm, curso: event.target.value })} /></label>
+            <label>Division<input value={childForm.division} onChange={(event) => setChildForm({ ...childForm, division: event.target.value })} /></label>
+          </div>
+          <Button type="submit">Guardar hijo</Button>
+        </form>
+      )}
 
       <form className="form-card inscripcion-padre" onSubmit={inscribir}>
         <PlusCircle size={24} />
         <h2>Inscribir a un hijo</h2>
         <label>
           Hijo
-          <select required value={form.alumno_id} onChange={(event) => setForm({ ...form, alumno_id: event.target.value })}>
+          <select required value={form.alumno_id} onChange={(event) => setForm({ ...form, alumno_id: event.target.value, grupo_deporte_id: '', recorrido_id: '' })}>
             <option value="">Seleccionar...</option>
             {hijos.map((hijo) => <option key={hijo.id} value={hijo.id}>{hijo.nombre} {hijo.apellido}</option>)}
           </select>
@@ -363,7 +521,7 @@ function PadreDashboard({ usuario }: { usuario: UsuarioAcceso }) {
             Grupo deportivo
             <select required value={form.grupo_deporte_id} onChange={(event) => setForm({ ...form, grupo_deporte_id: event.target.value })}>
               <option value="">Seleccionar...</option>
-              {grupos.map((grupo) => {
+              {availableGroups.map((grupo) => {
                 const deporte = deportes.find((d) => d.id === grupo.deporte_id);
                 return <option key={grupo.id} value={grupo.id}>{deporte?.nombre ?? 'Deporte'} - {grupo.nivel} {grupo.dia} {grupo.horario}</option>;
               })}

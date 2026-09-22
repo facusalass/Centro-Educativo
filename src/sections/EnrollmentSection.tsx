@@ -84,7 +84,7 @@ export function EnrollmentSection() {
           <SectionHeader
             eyebrow="Ciclo lectivo 2027"
             title="Solicitud de Inscripción"
-            description="Formulario inicial para registrar familias interesadas. Los datos son de prueba y quedan guardados en SQLite para desarrollo."
+             description="Formulario inicial para registrar familias interesadas. La solicitud queda guardada para su seguimiento administrativo."
           />
           <div className="process-card">
             <ClipboardCheck size={32} />

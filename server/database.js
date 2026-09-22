@@ -64,6 +64,7 @@ const sqliteSchema = `
     tutor_nombre TEXT DEFAULT '',
     tutor_email TEXT DEFAULT '',
     tutor_telefono TEXT DEFAULT '',
+    usuario_padre_id INTEGER,
     estado TEXT DEFAULT 'activo',
     created_at TEXT DEFAULT CURRENT_TIMESTAMP
   );
@@ -311,6 +312,7 @@ export const postgresSchema = `
     tutor_nombre TEXT DEFAULT '',
     tutor_email TEXT DEFAULT '',
     tutor_telefono TEXT DEFAULT '',
+    usuario_padre_id INTEGER,
     estado TEXT DEFAULT 'activo',
     created_at TEXT DEFAULT CURRENT_TIMESTAMP
   );
@@ -688,6 +690,7 @@ async function runMigrations() {
     ['alumnos', 'tutor_nombre', "TEXT DEFAULT ''"],
     ['alumnos', 'tutor_email', "TEXT DEFAULT ''"],
     ['alumnos', 'tutor_telefono', "TEXT DEFAULT ''"],
+    ['alumnos', 'usuario_padre_id', 'INTEGER'],
     ['alumnos', 'estado', "TEXT DEFAULT 'activo'"],
     ['alumnos', 'created_at', "TEXT DEFAULT ''"],
     ['docentes', 'legajo', "TEXT DEFAULT ''"],
@@ -745,6 +748,67 @@ async function seedDatabase() {
   await seedActividades();
   await seedGaleria();
   await seedInscripciones();
+  await ensureDemoParentChild();
+}
+
+async function ensureDemoParentChild() {
+  const parent = await get('SELECT id, email FROM usuarios_acceso WHERE email = ?', ['padre@educar.com']);
+  if (!parent) return;
+
+  const studentAccount = await get(
+    "SELECT referencia_id FROM usuarios_acceso WHERE email = 'alumno@educar.com' AND rol = 'alumno'",
+  );
+  const sharedChild = studentAccount?.referencia_id
+    ? await get('SELECT * FROM alumnos WHERE id = ?', [studentAccount.referencia_id])
+    : null;
+  const linkedChild = sharedChild ?? await get('SELECT * FROM alumnos WHERE usuario_padre_id = ? OR tutor_email = ? LIMIT 1', [parent.id, parent.email]);
+
+  if (linkedChild) {
+    await run(
+      'UPDATE alumnos SET usuario_padre_id = ?, tutor_nombre = ?, tutor_email = ? WHERE id = ?',
+      [parent.id, parent.email, parent.email, linkedChild.id],
+    );
+    await run(
+      "UPDATE alumnos SET usuario_padre_id = NULL, tutor_email = '' WHERE usuario_padre_id = ? AND id <> ?",
+      [parent.id, linkedChild.id],
+    );
+    await ensureDemoChildEnrollment(linkedChild.id);
+    return;
+  }
+
+  const childId = await insert('alumnos', {
+    nombre: 'Mateo',
+    apellido: 'Fernandez',
+    legajo: 'A-2027-004',
+    dni: '51222333',
+    fecha_nacimiento: '2017-06-18',
+    domicilio: 'Av. Alberdi 456',
+    telefono: '3624011004',
+    email: 'mateo.fernandez@educar.com',
+    nivel: 'Primario',
+    curso: '3ro',
+    division: 'A',
+    tutor_nombre: parent.email,
+    tutor_email: parent.email,
+    tutor_telefono: '3624011005',
+    usuario_padre_id: parent.id,
+    estado: 'activo',
+  });
+  await ensureDemoChildEnrollment(childId);
+}
+
+async function ensureDemoChildEnrollment(childId) {
+  const child = await get('SELECT nivel FROM alumnos WHERE id = ?', [childId]);
+  const existingSport = await get("SELECT id FROM inscripciones WHERE alumno_id = ? AND tipo = 'deporte' LIMIT 1", [childId]);
+  const group = await get('SELECT id FROM grupos_deporte WHERE nivel = ? ORDER BY id LIMIT 1', [child?.nivel]);
+  if (group && !existingSport) {
+    await insert('inscripciones', {
+      alumno_id: childId,
+      tipo: 'deporte',
+      grupo_deporte_id: group.id,
+      recorrido_id: null,
+    });
+  }
 }
 
 async function seedNiveles() {

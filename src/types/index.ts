@@ -21,6 +21,7 @@ export type Alumno = {
   tutor_nombre: string;
   tutor_email: string;
   tutor_telefono: string;
+  usuario_padre_id?: number | null;
   estado: string;
   created_at: string;
 };
@@ -296,6 +297,28 @@ export type UsuarioAcceso = {
   estado: string;
   referencia_id?: number | null;
   created_at: string;
+};
+
+export type RegistroPadre = {
+  nombre_padre: string;
+  email: string;
+  password: string;
+  telefono_padre?: string;
+  nombre_hijo: string;
+  apellido_hijo: string;
+  dni_hijo?: string;
+  fecha_nacimiento_hijo?: string;
+  domicilio_hijo?: string;
+  telefono_hijo?: string;
+  email_hijo?: string;
+  nivel: string;
+  curso?: string;
+  division?: string;
+  legajo_hijo?: string;
+};
+
+export type RegistroHijo = Omit<RegistroPadre, 'email' | 'password' | 'nombre_padre'> & {
+  usuario_padre_id: number;
 };
 
 export type ContactoMensaje = {
