@@ -768,6 +768,12 @@ async function ensureDemoParentChild() {
   const linkedChild = sharedChild ?? await get('SELECT * FROM alumnos WHERE usuario_padre_id = ? OR tutor_email = ? LIMIT 1', [parent.id, parent.email]);
 
   if (linkedChild) {
+    if (studentAccount?.referencia_id === linkedChild.id) {
+      await run(
+        'UPDATE usuarios_acceso SET nombre = ? WHERE email = ? AND rol = ?',
+        [`${linkedChild.nombre} ${linkedChild.apellido}`, 'alumno@educar.com', 'alumno'],
+      );
+    }
     await run(
       'UPDATE alumnos SET usuario_padre_id = ?, tutor_nombre = ?, tutor_email = ? WHERE id = ?',
       [parent.id, parent.email, parent.email, linkedChild.id],
