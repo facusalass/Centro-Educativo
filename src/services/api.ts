@@ -1,5 +1,6 @@
 import type {
   ActividadEscolar,
+  AdminBootstrap,
   Alumno,
   AlumnosPorDeporte,
   AlumnosPorDeporteDetalle,
@@ -64,6 +65,7 @@ const del = <T>(path: string) => request<T>(path, { method: 'DELETE' });
 
 export const api = {
   getNiveles: () => request<Nivel[]>('/niveles'),
+  getAdminBootstrap: () => request<AdminBootstrap>('/admin/bootstrap'),
   getServicios: () => request<Servicio[]>('/servicios'),
   crearServicio: (data: Partial<Servicio>) => post<Servicio, Partial<Servicio>>('/servicios', data),
   getInstalaciones: () => request<Instalacion[]>('/instalaciones'),

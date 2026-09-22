@@ -321,6 +321,24 @@ export type RegistroHijo = Omit<RegistroPadre, 'email' | 'password' | 'nombre_pa
   usuario_padre_id: number;
 };
 
+export type AdminBootstrap = {
+  solicitudes: SolicitudInscripcion[];
+  opiniones: Opinion[];
+  postulaciones: PostulacionEmpleo[];
+  alumnos: Alumno[];
+  docentes: Docente[];
+  cursos: Curso[];
+  servicios: Servicio[];
+  instalaciones: Instalacion[];
+  noticias: Noticia[];
+  usuarios: UsuarioAcceso[];
+  materias: Materia[];
+  deportes: Deporte[];
+  grupos: GrupoDeporte[];
+  recorridos: RecorridoTransporte[];
+  inscripciones: InscripcionDetalle[];
+};
+
 export type ContactoMensaje = {
   nombre: string;
   email: string;

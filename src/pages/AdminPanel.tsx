@@ -5,6 +5,7 @@ import { Button } from '../components/Button';
 import { api } from '../services/api';
 import type {
   Alumno,
+  AdminBootstrap,
   Asistencia,
   AsistenciaRegistro,
   Curso,
@@ -24,23 +25,7 @@ import type {
   UsuarioAcceso,
 } from '../types';
 
-type AdminData = {
-  solicitudes: SolicitudInscripcion[];
-  opiniones: Opinion[];
-  postulaciones: PostulacionEmpleo[];
-  alumnos: Alumno[];
-  docentes: Docente[];
-  cursos: Curso[];
-  servicios: Servicio[];
-  instalaciones: Instalacion[];
-  noticias: Noticia[];
-  usuarios: UsuarioAcceso[];
-  materias: Materia[];
-  deportes: Deporte[];
-  grupos: GrupoDeporte[];
-  recorridos: RecorridoTransporte[];
-  inscripciones: InscripcionDetalle[];
-};
+type AdminData = AdminBootstrap;
 
 const emptyData: AdminData = {
   solicitudes: [],
@@ -78,24 +63,7 @@ export function AdminPanel() {
   async function loadData() {
     setStatus('Cargando datos...');
     try {
-      const [solicitudes, opiniones, postulaciones, alumnos, docentes, cursos, servicios, instalaciones, noticias, usuarios, materias, deportes, grupos, recorridos, inscripciones] = await Promise.all([
-        api.getSolicitudes(),
-        api.getOpiniones(true),
-        api.getPostulaciones(),
-        api.getAlumnos(),
-        api.getDocentes(),
-        api.getCursos(),
-        api.getServicios(),
-        api.getInstalaciones(),
-        api.getNoticias(true),
-        api.getUsuarios(),
-        api.getMaterias(),
-        api.getDeportes(),
-        api.getGruposDeporte(),
-        api.getRecorridos(),
-        api.getInscripciones(),
-      ]);
-      setData({ solicitudes, opiniones, postulaciones, alumnos, docentes, cursos, servicios, instalaciones, noticias, usuarios, materias, deportes, grupos, recorridos, inscripciones });
+      setData(await api.getAdminBootstrap());
       setStatus('Datos actualizados.');
     } catch (error) {
       setStatus(error instanceof Error ? error.message : 'No se pudieron cargar los datos.');

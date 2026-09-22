@@ -671,6 +671,10 @@ async function enableRowLevelSecurity() {
 }
 
 export async function initializeDatabase() {
+  if (process.env.VERCEL && process.env.DATABASE_SCHEMA_READY === 'true') {
+    await get('SELECT 1');
+    return;
+  }
   await exec(databaseMode === 'postgres' ? postgresSchema : sqliteSchema);
   await runMigrations();
   await enableRowLevelSecurity();
