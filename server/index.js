@@ -177,7 +177,7 @@ app.get('/api/admin/bootstrap', async (_req, res) => {
       db.all('SELECT * FROM recorridos_transporte ORDER BY id'),
       db.all('SELECT * FROM inscripciones ORDER BY fecha_inscripcion DESC, id DESC'),
     ]);
-    res.json({ solicitudes, opiniones, postulaciones, alumnos, docentes, cursos, servicios, instalaciones, noticias, usuarios, materias, deportes, grupos, recorridos, inscripciones });
+    res.json({ solicitudes, opiniones, postulaciones, alumnos, docentes, cursos, servicios, instalaciones, noticias, usuarios, materias, deportes, grupos, recorridos, inscripciones, asignaciones: await db.all('SELECT * FROM asignaciones_docentes') });
   } catch (error) {
     sendDbError(res, error);
   }
@@ -573,6 +573,17 @@ app.put('/api/usuarios/:id', async (req, res) => {
     sendDbError(res, error);
   }
 });
+
+app.delete('/api/usuarios/:id', async (req, res) => {
+  try {
+    const result = await db.run('DELETE FROM usuarios_acceso WHERE id = ?', [req.params.id]);
+    if (!result.changes) return res.status(404).json({ error: 'Usuario no encontrado.' });
+    res.json({ ok: true });
+  } catch (error) {
+    sendDbError(res, error);
+  }
+});
+
 
 app.post('/api/login-demo', async (req, res) => {
   const { email, password } = req.body;
@@ -1088,6 +1099,36 @@ app.get('/api/reportes/docentes-por-nivel', async (_req, res) => {
     sendDbError(res, error);
   }
 });
+
+app.get('/api/reportes/alumnos-por-curso', async (_req, res) => {
+  try {
+    const data = await loadReportData();
+    const resultado = data.cursos.map((curso) => {
+      const alumnosDelCurso = data.alumnos.filter(
+        (alumno) => alumno.nivel === curso.nivel && alumno.curso === curso.anio && alumno.division === curso.division,
+      );
+      return {
+        nivel: curso.nivel,
+        anio: curso.anio,
+        division: curso.division,
+        turno: curso.turno,
+        alumnos: alumnosDelCurso.map((alumno) => ({
+          id: alumno.id,
+          legajo: alumno.legajo,
+          apellido: alumno.apellido,
+          nombre: alumno.nombre,
+          dni: alumno.dni,
+          email: alumno.email,
+          telefono: alumno.telefono,
+        })),
+      };
+    });
+    res.json(resultado);
+  } catch (error) {
+    sendDbError(res, error);
+  }
+});
+
 
 app.get('/api/asistencias', async (req, res) => {
   try {
