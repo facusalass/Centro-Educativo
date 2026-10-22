@@ -38,7 +38,9 @@ export function EnrollmentSection() {
       ['email', data.email_contacto],
       ['teléfono', data.telefono],
       ['mensaje', data.mensaje],
-    ].filter(([, value]) => !value).map(([label]) => label);
+    ]
+      .filter(([, value]) => !value)
+      .map(([label]) => label);
 
     if (missingFields.length > 0) {
       setStatusTone('error');
@@ -52,7 +54,9 @@ export function EnrollmentSection() {
     }
     if (!isValidPhone(data.telefono)) {
       setStatusTone('error');
-      setStatus('Ingresá un teléfono válido de 7 a 15 dígitos. Podés usar +, espacios, guiones y paréntesis.');
+      setStatus(
+        'Ingresá un teléfono válido de 7 a 15 dígitos. Podés usar +, espacios, guiones y paréntesis.',
+      );
       return;
     }
     if (data.mensaje.length < 10) {
@@ -84,13 +88,15 @@ export function EnrollmentSection() {
           <SectionHeader
             eyebrow="Ciclo lectivo 2027"
             title="Solicitud de Inscripción"
-             description="Formulario inicial para registrar familias interesadas. La solicitud queda guardada para su seguimiento administrativo."
+            description="Formulario inicial para registrar familias interesadas. La solicitud queda guardada para su seguimiento administrativo."
           />
           <div className="process-card">
             <ClipboardCheck size={32} />
             <div>
               <h3>Estado inicial del trámite</h3>
-              <p>Las solicitudes ingresan como recibidas para su posterior revisión administrativa.</p>
+              <p>
+                Las solicitudes ingresan como recibidas para su posterior revisión administrativa.
+              </p>
             </div>
           </div>
         </div>
@@ -98,15 +104,30 @@ export function EnrollmentSection() {
         <form className="form-card" onSubmit={handleSubmit} noValidate>
           <label>
             Nombre del tutor
-            <input required maxLength={100} autoComplete="name" value={form.nombre_tutor} onChange={(event) => setForm({ ...form, nombre_tutor: event.target.value })} />
+            <input
+              required
+              maxLength={100}
+              autoComplete="name"
+              value={form.nombre_tutor}
+              onChange={(event) => setForm({ ...form, nombre_tutor: event.target.value })}
+            />
           </label>
           <label>
             Nombre del aspirante
-            <input required maxLength={100} value={form.nombre_aspirante} onChange={(event) => setForm({ ...form, nombre_aspirante: event.target.value })} />
+            <input
+              required
+              maxLength={100}
+              value={form.nombre_aspirante}
+              onChange={(event) => setForm({ ...form, nombre_aspirante: event.target.value })}
+            />
           </label>
           <label>
             Nivel solicitado
-            <select required value={form.nivel_solicitado} onChange={(event) => setForm({ ...form, nivel_solicitado: event.target.value })}>
+            <select
+              required
+              value={form.nivel_solicitado}
+              onChange={(event) => setForm({ ...form, nivel_solicitado: event.target.value })}
+            >
               <option>Nivel Inicial</option>
               <option>Nivel Primario</option>
               <option>Nivel Secundario</option>
@@ -115,19 +136,51 @@ export function EnrollmentSection() {
           <div className="form-row">
             <label>
               Email
-              <input required type="email" maxLength={150} autoComplete="email" value={form.email_contacto} onChange={(event) => setForm({ ...form, email_contacto: event.target.value })} />
+              <input
+                required
+                type="email"
+                maxLength={150}
+                autoComplete="email"
+                value={form.email_contacto}
+                onChange={(event) => setForm({ ...form, email_contacto: event.target.value })}
+              />
             </label>
             <label>
               Teléfono
-              <input required type="tel" inputMode="tel" maxLength={30} autoComplete="tel" value={form.telefono} onChange={(event) => setForm({ ...form, telefono: event.target.value })} />
+              <input
+                required
+                type="tel"
+                inputMode="tel"
+                maxLength={30}
+                autoComplete="tel"
+                value={form.telefono}
+                onChange={(event) => setForm({ ...form, telefono: event.target.value })}
+              />
             </label>
           </div>
           <label>
             Mensaje
-            <textarea required minLength={10} maxLength={1000} rows={4} value={form.mensaje} onChange={(event) => setForm({ ...form, mensaje: event.target.value })} />
+            <textarea
+              required
+              minLength={10}
+              maxLength={1000}
+              rows={4}
+              value={form.mensaje}
+              onChange={(event) => setForm({ ...form, mensaje: event.target.value })}
+            />
           </label>
-          <Button type="submit" disabled={submitting}>{submitting ? 'Enviando...' : 'Enviar solicitud'}</Button>
-          {status && <span className={`form-status form-status-${statusTone}`} role="status" aria-live="polite">{status}</span>}
+          <Button type="submit" disabled={submitting}>
+            {submitting ? 'Enviando...' : 'Enviar solicitud'}
+          </Button>
+          {status && (
+            <span
+              className={`form-status form-status-${statusTone}`}
+              role="status"
+              aria-live="polite"
+            >
+              {status}
+            </span>
+          )}
         </form>
       </div>
     </section>

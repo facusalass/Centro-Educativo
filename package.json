@@ -20,7 +20,9 @@
     "test:postgres": "node scripts/test-postgres.mjs",
     "admin:create": "node --env-file-if-exists=.env --import tsx scripts/create-admin.ts",
     "db:backup": "node --env-file-if-exists=.env scripts/backup.mjs",
-    "db:restore": "node --env-file-if-exists=.env --import tsx scripts/restore.ts"
+    "db:restore": "node --env-file-if-exists=.env --import tsx scripts/restore.ts",
+    "format": "prettier --write src server scripts tests api *.json *.ts",
+    "format:check": "prettier --check src server scripts tests api *.json *.ts"
   },
   "dependencies": {
     "@vercel/functions": "^3.10.2",
@@ -49,6 +51,7 @@
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
     "embedded-postgres": "^18.4.0-beta.17",
+    "prettier": "^3.9.10",
     "typescript": "^5.9.3"
   }
 }

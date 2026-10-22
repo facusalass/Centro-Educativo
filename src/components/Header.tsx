@@ -34,10 +34,19 @@ export function Header() {
         </nav>
 
         <div className="header-actions">
-          <Button variant="primary" onClick={() => document.getElementById('acceso-comunidad')?.scrollIntoView({ behavior: 'smooth' })}>
+          <Button
+            variant="primary"
+            onClick={() =>
+              document.getElementById('acceso-comunidad')?.scrollIntoView({ behavior: 'smooth' })
+            }
+          >
             Acceso Comunidad
           </Button>
-          <button className="icon-button mobile-only" onClick={() => setOpen((value) => !value)} aria-label="Abrir menú">
+          <button
+            className="icon-button mobile-only"
+            onClick={() => setOpen((value) => !value)}
+            aria-label="Abrir menú"
+          >
             {open ? <X size={22} /> : <Menu size={22} />}
           </button>
         </div>

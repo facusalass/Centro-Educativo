@@ -32,7 +32,9 @@ export function TestimonialsSection() {
       setStatus('Gracias. Tu opinion quedo registrada y sera publicada cuando sea moderada.');
     } catch {
       setStatus('No se pudo enviar la opinion. Verifica que el backend este en ejecucion.');
-    } finally { setPending(false); }
+    } finally {
+      setPending(false);
+    }
   }
 
   const opinionesPublicas = opiniones.filter(esOpinionPublica);
@@ -54,13 +56,14 @@ export function TestimonialsSection() {
               <p className="empty-state">Todavia no hay opiniones publicadas.</p>
             )}
 
-            {!loading && opinionesPublicas.slice(0, 4).map((opinion) => (
-              <article className="testimonial-card" key={opinion.id}>
-                <MessageSquareQuote size={34} />
-                <p>"{opinion.comentario}"</p>
-                <strong>{opinion.autor_anonimo}</strong>
-              </article>
-            ))}
+            {!loading &&
+              opinionesPublicas.slice(0, 4).map((opinion) => (
+                <article className="testimonial-card" key={opinion.id}>
+                  <MessageSquareQuote size={34} />
+                  <p>"{opinion.comentario}"</p>
+                  <strong>{opinion.autor_anonimo}</strong>
+                </article>
+              ))}
           </div>
         </div>
 
@@ -89,7 +92,9 @@ export function TestimonialsSection() {
             />
           </label>
 
-          <Button type="submit" disabled={pending}><Send size={18} /> Enviar opinion</Button>
+          <Button type="submit" disabled={pending}>
+            <Send size={18} /> Enviar opinion
+          </Button>
           {status && <span className="form-status">{status}</span>}
         </form>
       </div>

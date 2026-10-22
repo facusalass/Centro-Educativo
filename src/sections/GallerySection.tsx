@@ -1,4 +1,3 @@
-import { useEffect, useState } from 'react';
 import { api } from '../services/api';
 import { usePublicList } from '../services/usePublicList';
 import type { GaleriaImagen } from '../types';
@@ -13,7 +12,8 @@ export function GallerySection() {
     <section id="galeria" className="section gallery-strip">
       <div className="container gallery-strip-header">
         <span className="eyebrow">Galeria</span>
-        <h2>Vida institucional proyectada</h2>{status}
+        <h2>Vida institucional proyectada</h2>
+        {status}
       </div>
 
       <div className="gallery-marquee" aria-label="Carrusel horizontal de imagenes institucionales">

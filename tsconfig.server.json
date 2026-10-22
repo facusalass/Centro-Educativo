@@ -1,8 +1,17 @@
 {
   "compilerOptions": {
-    "target": "ES2022", "module": "NodeNext", "moduleResolution": "NodeNext",
-    "strict": true, "noEmit": true, "allowImportingTsExtensions": true,
-    "allowJs": true, "checkJs": false, "esModuleInterop": true, "skipLibCheck": true
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "strict": true,
+    "noEmit": true,
+    "allowImportingTsExtensions": true,
+    "allowJs": true,
+    "checkJs": false,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true
   },
-  "include": ["server/core/**/*.ts", "scripts/upgrade.ts", "scripts/deliver.ts"]
+  "include": ["server/**/*.ts", "scripts/upgrade.ts", "scripts/deliver.ts"]
 }

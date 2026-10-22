@@ -1,12 +1,15 @@
 import { CalendarDays } from 'lucide-react';
-import { useEffect, useState } from 'react';
 import { SectionHeader } from '../components/SectionHeader';
 import { api } from '../services/api';
 import { usePublicList } from '../services/usePublicList';
 import type { ActividadEscolar } from '../types';
 
 function formatDate(date: string) {
-  return new Intl.DateTimeFormat('es-AR', { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(date));
+  return new Intl.DateTimeFormat('es-AR', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  }).format(new Date(date));
 }
 
 export function ActivitiesSection() {
@@ -24,7 +27,9 @@ export function ActivitiesSection() {
         <div className="activities-grid">
           {actividades.slice(0, 3).map((actividad) => (
             <article className="activity-card" key={actividad.id}>
-              <span><CalendarDays size={17} /> {formatDate(actividad.fecha)}</span>
+              <span>
+                <CalendarDays size={17} /> {formatDate(actividad.fecha)}
+              </span>
               <h3>{actividad.titulo}</h3>
               <p>{actividad.descripcion}</p>
               <strong>{actividad.nivel}</strong>

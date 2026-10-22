@@ -3,8 +3,11 @@ import { db, databaseMode } from '../database.js';
 
 // Versioned, additive migrations preserve the existing school records.
 export async function migrateCore() {
-  const pk = databaseMode === 'postgres' ? 'SERIAL PRIMARY KEY' : 'INTEGER PRIMARY KEY AUTOINCREMENT';
-  await db.exec('CREATE TABLE IF NOT EXISTS schema_migrations (version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL)');
+  const pk =
+    databaseMode === 'postgres' ? 'SERIAL PRIMARY KEY' : 'INTEGER PRIMARY KEY AUTOINCREMENT';
+  await db.exec(
+    'CREATE TABLE IF NOT EXISTS schema_migrations (version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL)',
+  );
   if (await db.get('SELECT version FROM schema_migrations WHERE version = 1')) return;
   await db.transaction(async () => {
     if (await db.get('SELECT version FROM schema_migrations WHERE version = 1')) return;
@@ -21,7 +24,8 @@ export async function migrateCore() {
       ['calificaciones_alumnos', 'publicada', 'INTEGER DEFAULT 0'],
     ];
     for (const [table, column, definition] of columns) {
-      if (!(await db.hasColumn(table, column))) await db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+      if (!(await db.hasColumn(table, column)))
+        await db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
     }
     await db.exec(`
       CREATE TABLE IF NOT EXISTS matriculas (
@@ -56,32 +60,57 @@ export async function migrateCore() {
       CREATE INDEX IF NOT EXISTS idx_matriculas_curso ON matriculas(curso_id, ciclo);
     `);
     for (const curso of await db.all('SELECT * FROM cursos')) {
-      const nivel = await db.get('SELECT id FROM niveles_educativos WHERE nombre = ? OR nombre = ?', [curso.nivel, `Nivel ${curso.nivel}`]);
+      const nivel = await db.get(
+        'SELECT id FROM niveles_educativos WHERE nombre = ? OR nombre = ?',
+        [curso.nivel, `Nivel ${curso.nivel}`],
+      );
       if (nivel) await db.update('cursos', curso.id, { nivel_id: nivel.id });
     }
     for (const alumno of await db.all('SELECT * FROM alumnos')) {
-      const curso = await db.get('SELECT id FROM cursos WHERE nivel = ? AND anio = ? AND division = ?', [alumno.nivel, alumno.curso, alumno.division]);
+      const curso = await db.get(
+        'SELECT id FROM cursos WHERE nivel = ? AND anio = ? AND division = ?',
+        [alumno.nivel, alumno.curso, alumno.division],
+      );
       if (curso) await db.update('alumnos', alumno.id, { curso_id: curso.id });
       if (!alumno.usuario_padre_id && alumno.tutor_email) {
-        const parent = await db.get("SELECT id FROM usuarios_acceso WHERE email = ? AND rol = 'padre'", [alumno.tutor_email]);
+        const parent = await db.get(
+          "SELECT id FROM usuarios_acceso WHERE email = ? AND rol = 'padre'",
+          [alumno.tutor_email],
+        );
         if (parent) await db.update('alumnos', alumno.id, { usuario_padre_id: parent.id });
       }
     }
     for (const asignacion of await db.all('SELECT * FROM asignaciones_docentes')) {
       let materia = await db.get('SELECT id FROM materias WHERE nombre = ?', [asignacion.materia]);
-      if (!materia) materia = { id: await db.insert('materias', { nombre: asignacion.materia, descripcion: '' }) };
+      if (!materia)
+        materia = {
+          id: await db.insert('materias', { nombre: asignacion.materia, descripcion: '' }),
+        };
       await db.update('asignaciones_docentes', asignacion.id, { materia_id: materia.id });
     }
-    for (const usuario of await db.all('SELECT id, password_demo, password_hash FROM usuarios_acceso')) {
-      if (usuario.password_demo) await db.update('usuarios_acceso', usuario.id, {
-        password_hash: usuario.password_hash || await bcrypt.hash(usuario.password_demo, 12), password_demo: '',
-      });
+    for (const usuario of await db.all(
+      'SELECT id, password_demo, password_hash FROM usuarios_acceso',
+    )) {
+      if (usuario.password_demo)
+        await db.update('usuarios_acceso', usuario.id, {
+          password_hash: usuario.password_hash || (await bcrypt.hash(usuario.password_demo, 12)),
+          password_demo: '',
+        });
     }
     if (databaseMode === 'postgres') {
-      for (const table of ['matriculas', 'notificaciones', 'auditoria', 'entregas', 'historial_calificaciones']) {
+      for (const table of [
+        'matriculas',
+        'notificaciones',
+        'auditoria',
+        'entregas',
+        'historial_calificaciones',
+      ]) {
         await db.exec(`ALTER TABLE ${table} ENABLE ROW LEVEL SECURITY`);
       }
     }
-    await db.run('INSERT INTO schema_migrations (version, applied_at) VALUES (?, ?)', [1, new Date().toISOString()]);
+    await db.run('INSERT INTO schema_migrations (version, applied_at) VALUES (?, ?)', [
+      1,
+      new Date().toISOString(),
+    ]);
   });
 }

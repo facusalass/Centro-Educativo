@@ -7,12 +7,29 @@ import { isValidEmail, isValidHttpUrl, isValidPhone } from '../services/validati
 import type { PostulacionEmpleo } from '../types';
 
 const benefits = [
-  { title: 'Desarrollo profesional', description: 'Capacitación continua y crecimiento en la carrera educativa.', icon: GraduationCap },
-  { title: 'Equipo colaborativo', description: 'Ambiente de trabajo positivo, organizado y participativo.', icon: UsersRound },
-  { title: 'Innovación educativa', description: 'Proyecto pedagógico moderno y orientado a la mejora continua.', icon: Lightbulb },
+  {
+    title: 'Desarrollo profesional',
+    description: 'Capacitación continua y crecimiento en la carrera educativa.',
+    icon: GraduationCap,
+  },
+  {
+    title: 'Equipo colaborativo',
+    description: 'Ambiente de trabajo positivo, organizado y participativo.',
+    icon: UsersRound,
+  },
+  {
+    title: 'Innovación educativa',
+    description: 'Proyecto pedagógico moderno y orientado a la mejora continua.',
+    icon: Lightbulb,
+  },
 ];
 
-const positions = ['Docente de Nivel Inicial', 'Docente de Nivel Primario', 'Profesores de Nivel Secundario', 'Personal Administrativo'];
+const positions = [
+  'Docente de Nivel Inicial',
+  'Docente de Nivel Primario',
+  'Profesores de Nivel Secundario',
+  'Personal Administrativo',
+];
 
 const initialForm: PostulacionEmpleo = {
   nombre_candidato: '',
@@ -46,7 +63,9 @@ export function EmploymentSection() {
       ['puesto de interés', data.puesto_interes],
       ['enlace al CV', data.enlace_cv],
       ['mensaje', data.mensaje],
-    ].filter(([, value]) => !value).map(([label]) => label);
+    ]
+      .filter(([, value]) => !value)
+      .map(([label]) => label);
 
     if (missingFields.length > 0) {
       setStatusTone('error');
@@ -60,12 +79,16 @@ export function EmploymentSection() {
     }
     if (!isValidPhone(data.telefono)) {
       setStatusTone('error');
-      setStatus('Ingresá un teléfono válido de 7 a 15 dígitos. Podés usar +, espacios, guiones y paréntesis.');
+      setStatus(
+        'Ingresá un teléfono válido de 7 a 15 dígitos. Podés usar +, espacios, guiones y paréntesis.',
+      );
       return;
     }
     if (!isValidHttpUrl(data.enlace_cv)) {
       setStatusTone('error');
-      setStatus('El enlace al CV debe ser una dirección válida que comience con http:// o https://.');
+      setStatus(
+        'El enlace al CV debe ser una dirección válida que comience con http:// o https://.',
+      );
       return;
     }
     if (data.mensaje.length < 20) {
@@ -104,7 +127,9 @@ export function EmploymentSection() {
             const Icon = benefit.icon;
             return (
               <article className="info-card" key={benefit.title}>
-                <div className="card-icon subtle"><Icon size={28} /></div>
+                <div className="card-icon subtle">
+                  <Icon size={28} />
+                </div>
                 <h3>{benefit.title}</h3>
                 <p>{benefit.description}</p>
               </article>
@@ -114,10 +139,16 @@ export function EmploymentSection() {
 
         <div className="employment-panel">
           <div>
-            <h3><BriefcaseBusiness size={26} /> Vacantes disponibles</h3>
+            <h3>
+              <BriefcaseBusiness size={26} /> Vacantes disponibles
+            </h3>
             <div className="positions-list">
               {positions.map((position) => (
-                <button type="button" key={position} onClick={() => setForm({ ...form, puesto_interes: position })}>
+                <button
+                  type="button"
+                  key={position}
+                  onClick={() => setForm({ ...form, puesto_interes: position })}
+                >
                   {position}
                   <span>Tiempo completo / parcial</span>
                 </button>
@@ -128,34 +159,85 @@ export function EmploymentSection() {
           <form className="form-card flat-form" onSubmit={handleSubmit} noValidate>
             <label>
               Nombre del candidato
-              <input required maxLength={100} autoComplete="name" value={form.nombre_candidato} onChange={(event) => setForm({ ...form, nombre_candidato: event.target.value })} />
+              <input
+                required
+                maxLength={100}
+                autoComplete="name"
+                value={form.nombre_candidato}
+                onChange={(event) => setForm({ ...form, nombre_candidato: event.target.value })}
+              />
             </label>
             <div className="form-row">
               <label>
                 Email
-                <input required type="email" maxLength={150} autoComplete="email" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} />
+                <input
+                  required
+                  type="email"
+                  maxLength={150}
+                  autoComplete="email"
+                  value={form.email}
+                  onChange={(event) => setForm({ ...form, email: event.target.value })}
+                />
               </label>
               <label>
                 Teléfono
-                <input required type="tel" inputMode="tel" maxLength={30} autoComplete="tel" value={form.telefono} onChange={(event) => setForm({ ...form, telefono: event.target.value })} />
+                <input
+                  required
+                  type="tel"
+                  inputMode="tel"
+                  maxLength={30}
+                  autoComplete="tel"
+                  value={form.telefono}
+                  onChange={(event) => setForm({ ...form, telefono: event.target.value })}
+                />
               </label>
             </div>
             <label>
               Puesto de interés
-              <select required value={form.puesto_interes} onChange={(event) => setForm({ ...form, puesto_interes: event.target.value })}>
-                {positions.map((position) => <option key={position}>{position}</option>)}
+              <select
+                required
+                value={form.puesto_interes}
+                onChange={(event) => setForm({ ...form, puesto_interes: event.target.value })}
+              >
+                {positions.map((position) => (
+                  <option key={position}>{position}</option>
+                ))}
               </select>
             </label>
             <label>
               Enlace al CV
-              <input required type="url" maxLength={500} value={form.enlace_cv} onChange={(event) => setForm({ ...form, enlace_cv: event.target.value })} placeholder="https://..." />
+              <input
+                required
+                type="url"
+                maxLength={500}
+                value={form.enlace_cv}
+                onChange={(event) => setForm({ ...form, enlace_cv: event.target.value })}
+                placeholder="https://..."
+              />
             </label>
             <label>
               Mensaje
-              <textarea required minLength={20} maxLength={1500} rows={4} value={form.mensaje} onChange={(event) => setForm({ ...form, mensaje: event.target.value })} />
+              <textarea
+                required
+                minLength={20}
+                maxLength={1500}
+                rows={4}
+                value={form.mensaje}
+                onChange={(event) => setForm({ ...form, mensaje: event.target.value })}
+              />
             </label>
-            <Button type="submit" disabled={submitting}>{submitting ? 'Enviando...' : 'Enviar postulación'}</Button>
-            {status && <span className={`form-status form-status-${statusTone}`} role="status" aria-live="polite">{status}</span>}
+            <Button type="submit" disabled={submitting}>
+              {submitting ? 'Enviando...' : 'Enviar postulación'}
+            </Button>
+            {status && (
+              <span
+                className={`form-status form-status-${statusTone}`}
+                role="status"
+                aria-live="polite"
+              >
+                {status}
+              </span>
+            )}
           </form>
         </div>
       </div>

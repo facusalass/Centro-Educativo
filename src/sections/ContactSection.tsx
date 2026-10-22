@@ -27,7 +27,9 @@ export function ContactSection() {
       setStatus('Consulta recibida correctamente.');
     } catch (error) {
       setStatus(error instanceof Error ? error.message : 'No se pudo enviar la consulta.');
-    } finally { setPending(false); }
+    } finally {
+      setPending(false);
+    }
   }
 
   return (
@@ -63,21 +65,41 @@ export function ContactSection() {
           <h3>Enviar consulta</h3>
           <label>
             Nombre
-            <input required value={form.nombre} onChange={(event) => setForm({ ...form, nombre: event.target.value })} />
+            <input
+              required
+              value={form.nombre}
+              onChange={(event) => setForm({ ...form, nombre: event.target.value })}
+            />
           </label>
           <label>
             Email
-            <input required type="email" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} />
+            <input
+              required
+              type="email"
+              value={form.email}
+              onChange={(event) => setForm({ ...form, email: event.target.value })}
+            />
           </label>
           <label>
             Asunto
-            <input required value={form.asunto} onChange={(event) => setForm({ ...form, asunto: event.target.value })} />
+            <input
+              required
+              value={form.asunto}
+              onChange={(event) => setForm({ ...form, asunto: event.target.value })}
+            />
           </label>
           <label>
             Mensaje
-            <textarea required rows={4} value={form.mensaje} onChange={(event) => setForm({ ...form, mensaje: event.target.value })} />
+            <textarea
+              required
+              rows={4}
+              value={form.mensaje}
+              onChange={(event) => setForm({ ...form, mensaje: event.target.value })}
+            />
           </label>
-          <Button type="submit" disabled={pending}><Send size={18} /> Enviar consulta</Button>
+          <Button type="submit" disabled={pending}>
+            <Send size={18} /> Enviar consulta
+          </Button>
           {status && <span className="form-status">{status}</span>}
         </form>
       </div>

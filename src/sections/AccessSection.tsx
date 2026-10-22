@@ -41,10 +41,14 @@ export function AccessSection() {
             const Icon = item.icon;
             return (
               <article className="access-card" key={item.title}>
-                <div className="access-icon"><Icon size={30} /></div>
+                <div className="access-icon">
+                  <Icon size={30} />
+                </div>
                 <h3>{item.title}</h3>
                 <p>{item.description}</p>
-                <a className="btn btn-outline" href={item.href}>Ingresar</a>
+                <a className="btn btn-outline" href={item.href}>
+                  Ingresar
+                </a>
               </article>
             );
           })}

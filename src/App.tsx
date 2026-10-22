@@ -18,14 +18,25 @@ import { NewsSection } from './sections/NewsSection';
 import { ServicesSection } from './sections/ServicesSection';
 import { TestimonialsSection } from './sections/TestimonialsSection';
 
-export default function App() { return <SessionProvider><Routes /></SessionProvider>; }
+export default function App() {
+  return (
+    <SessionProvider>
+      <Routes />
+    </SessionProvider>
+  );
+}
 
 function Routes() {
   const { user, loading } = useSession();
   const path = window.location.pathname.replace(/\/+$/, '') || '/';
 
   if (path === '/admin') {
-    if (loading) return <main className="portal-main"><p role="status">Comprobando sesión…</p></main>;
+    if (loading)
+      return (
+        <main className="portal-main">
+          <p role="status">Comprobando sesión…</p>
+        </main>
+      );
     if (!user || user.rol !== 'admin') return <PortalPage />;
     return <ManagementPage />;
   }

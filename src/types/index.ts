@@ -129,7 +129,13 @@ export type ReporteDocente = {
     materia: string;
     dia: string;
     horario: string;
-    alumnos: Array<{ legajo: string; apellido: string; nombre: string; nivel: string; curso: string }>;
+    alumnos: Array<{
+      legajo: string;
+      apellido: string;
+      nombre: string;
+      nivel: string;
+      curso: string;
+    }>;
   }>;
   materiasACargo: string[];
   gruposDeporte: Array<{ grupo: GrupoDeporte; deporte: Deporte | null }>;
@@ -205,7 +211,6 @@ export type AlumnosPorCurso = Array<{
     telefono: string;
   }>;
 }>;
-
 
 export type Curso = {
   id: number;

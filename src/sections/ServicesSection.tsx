@@ -1,4 +1,3 @@
-import { useEffect, useState } from 'react';
 import { IconMap } from '../components/IconMap';
 import { SectionHeader } from '../components/SectionHeader';
 import { api } from '../services/api';
@@ -28,14 +27,18 @@ export function ServicesSection() {
         <div className="services-grid">
           {servicios.map((servicio) => (
             <article className="service-card" key={servicio.id}>
-              <div className="service-icon"><IconMap name={servicio.icono} /></div>
+              <div className="service-icon">
+                <IconMap name={servicio.icono} />
+              </div>
               <h3>{servicio.nombre}</h3>
               <p>{servicio.descripcion}</p>
             </article>
           ))}
         </div>
         <div className="wellbeing-row">
-          {wellbeing.map((item) => <span key={item}>{item}</span>)}
+          {wellbeing.map((item) => (
+            <span key={item}>{item}</span>
+          ))}
         </div>
       </div>
     </section>

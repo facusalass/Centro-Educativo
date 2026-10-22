@@ -7,9 +7,14 @@ export function NotFoundPage() {
         <SearchX size={58} aria-hidden="true" />
         <span className="eyebrow">Error 404</span>
         <h1>Página no encontrada</h1>
-        <p>La dirección ingresada no existe o fue modificada. Podés volver al sitio institucional y continuar navegando.</p>
+        <p>
+          La dirección ingresada no existe o fue modificada. Podés volver al sitio institucional y
+          continuar navegando.
+        </p>
         <div className="not-found-actions">
-          <a className="btn btn-primary" href="/"><Home size={18} /> Ir al inicio</a>
+          <a className="btn btn-primary" href="/">
+            <Home size={18} /> Ir al inicio
+          </a>
           <button className="btn btn-outline" type="button" onClick={() => window.history.back()}>
             <ArrowLeft size={18} /> Volver atrás
           </button>

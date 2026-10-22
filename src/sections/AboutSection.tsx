@@ -4,17 +4,20 @@ import { SectionHeader } from '../components/SectionHeader';
 const pillars = [
   {
     title: 'Excelencia académica',
-    description: 'Planificación pedagógica orientada al aprendizaje significativo y al seguimiento de trayectorias.',
+    description:
+      'Planificación pedagógica orientada al aprendizaje significativo y al seguimiento de trayectorias.',
     icon: BookOpen,
   },
   {
     title: 'Acompañamiento integral',
-    description: 'Bienestar físico, emocional y social como parte central de la experiencia educativa.',
+    description:
+      'Bienestar físico, emocional y social como parte central de la experiencia educativa.',
     icon: HeartHandshake,
   },
   {
     title: 'Innovación educativa',
-    description: 'Uso responsable de tecnología, laboratorios, idiomas y propuestas interdisciplinarias.',
+    description:
+      'Uso responsable de tecnología, laboratorios, idiomas y propuestas interdisciplinarias.',
     icon: Lightbulb,
   },
 ];
@@ -32,7 +35,9 @@ export function AboutSection() {
             const Icon = pillar.icon;
             return (
               <article className="info-card" key={pillar.title}>
-                <div className="card-icon"><Icon size={28} /></div>
+                <div className="card-icon">
+                  <Icon size={28} />
+                </div>
                 <h3>{pillar.title}</h3>
                 <p>{pillar.description}</p>
               </article>

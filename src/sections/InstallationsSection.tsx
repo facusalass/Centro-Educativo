@@ -1,4 +1,3 @@
-import { useEffect, useState } from 'react';
 import { SectionHeader } from '../components/SectionHeader';
 import { api } from '../services/api';
 import { usePublicList } from '../services/usePublicList';

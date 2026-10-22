@@ -94,3 +94,15 @@ Las contraseñas históricas se migran a hashes y se vacía el campo demo. El c�
 La publicación y la transferencia de credenciales a un nuevo entorno necesitan autorización del titular. El repositorio no contiene las credenciales.
 
 Ver [cumplimiento del plan](docs/cumplimiento-plan.md) para la trazabilidad de requisitos y los puntos de operación pendientes de configuración.
+
+## Organización y mantenimiento
+
+- `server/index.js` compone middleware y módulos; `start.js` administra arranque y cierre de recursos.
+- `server/data/` separa el esquema SQL de los datos demo. `database.js` mantiene el adaptador y las transacciones.
+- `server/core/` contiene permisos y reglas de negocio; las definiciones y validaciones de entidades están separadas de sus rutas.
+- `server/routes/` contiene catálogos públicos, formularios, carga administrativa y reportes.
+- `src/hooks/` carga datos por dominio y cancela peticiones anteriores al cambiar de contexto.
+- `src/components/management`, `portal` y `reports` reúnen las vistas de cada área.
+- `src/services/http.ts` centraliza transporte, credenciales y errores HTTP; los modelos del portal están tipados en `src/types/portal.ts`.
+
+Ejecutar `npm run format` para aplicar el formato y `npm run format:check` para verificarlo. La compilación también rechaza imports y parámetros sin usar. El workflow `calidad.yml` prepara esos controles y las regresiones para futuros pushes/PR; usa bases temporales sin credenciales de Supabase.

@@ -1,5 +1,4 @@
 import { Baby, BookOpenCheck, GraduationCap } from 'lucide-react';
-import { useEffect, useState } from 'react';
 import { SectionHeader } from '../components/SectionHeader';
 import { api } from '../services/api';
 import { usePublicList } from '../services/usePublicList';
@@ -24,7 +23,9 @@ export function LevelsSection() {
             const Icon = levelIcons[index] ?? GraduationCap;
             return (
               <article className="info-card level-card" key={nivel.id}>
-                <div className="card-icon"><Icon size={30} /></div>
+                <div className="card-icon">
+                  <Icon size={30} />
+                </div>
                 <span>{nivel.etiqueta}</span>
                 <h3>{nivel.nombre}</h3>
                 <p>{nivel.descripcion}</p>

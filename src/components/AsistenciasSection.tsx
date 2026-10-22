@@ -27,14 +27,33 @@ export function AsistenciasSection() {
   }, []);
 
   const niveles = [...new Set(cursos.map((curso) => curso.nivel))];
-  const anios = [...new Set(cursos.filter((curso) => curso.nivel === nivel).map((curso) => curso.anio))];
-  const divisiones = [...new Set(cursos.filter((curso) => curso.nivel === nivel && curso.anio === anio).map((curso) => curso.division))];
-  useEffect(() => { const choices = cursos.filter((c) => c.nivel === nivel); if (!choices.some((c) => c.anio === anio)) setAnio(choices[0]?.anio ?? ''); }, [nivel, cursos]);
-  useEffect(() => { const choices = cursos.filter((c) => c.nivel === nivel && c.anio === anio); if (!choices.some((c) => c.division === division)) setDivision(choices[0]?.division ?? ''); }, [nivel, anio, cursos]);
-  useEffect(() => { setLista([]); }, [nivel, anio, division, fecha]);
+  const anios = [
+    ...new Set(cursos.filter((curso) => curso.nivel === nivel).map((curso) => curso.anio)),
+  ];
+  const divisiones = [
+    ...new Set(
+      cursos
+        .filter((curso) => curso.nivel === nivel && curso.anio === anio)
+        .map((curso) => curso.division),
+    ),
+  ];
+  useEffect(() => {
+    const choices = cursos.filter((c) => c.nivel === nivel);
+    if (!choices.some((c) => c.anio === anio)) setAnio(choices[0]?.anio ?? '');
+  }, [nivel, cursos]);
+  useEffect(() => {
+    const choices = cursos.filter((c) => c.nivel === nivel && c.anio === anio);
+    if (!choices.some((c) => c.division === division)) setDivision(choices[0]?.division ?? '');
+  }, [nivel, anio, cursos]);
+  useEffect(() => {
+    setLista([]);
+  }, [nivel, anio, division, fecha]);
 
   async function cargarLista() {
-    if (!nivel || !anio || !division) { setEstado('Seleccioná un curso antes de cargar la lista.'); return; }
+    if (!nivel || !anio || !division) {
+      setEstado('Seleccioná un curso antes de cargar la lista.');
+      return;
+    }
     setPending(true);
     setEstado('Cargando lista...');
     try {
@@ -42,7 +61,9 @@ export function AsistenciasSection() {
       setEstado('Lista cargada.');
     } catch (error) {
       setEstado(error instanceof Error ? error.message : 'Error al cargar la lista.');
-    } finally { setPending(false); }
+    } finally {
+      setPending(false);
+    }
   }
 
   async function guardar() {
@@ -59,7 +80,9 @@ export function AsistenciasSection() {
       setEstado('Asistencia guardada.');
     } catch (error) {
       setEstado(error instanceof Error ? error.message : 'Error al guardar.');
-    } finally { setPending(false); }
+    } finally {
+      setPending(false);
+    }
   }
 
   function toggle(index: number) {
@@ -85,19 +108,58 @@ export function AsistenciasSection() {
     <section className="admin-section asistencias-section">
       <h2>Control de asistencias</h2>
       <div className="reportes-controls">
-        <input aria-label="Fecha de asistencia" disabled={pending} type="date" value={fecha} onChange={(event) => setFecha(event.target.value)} />
-        <select aria-label="Nivel de asistencia" disabled={pending} value={nivel} onChange={(event) => setNivel(event.target.value)}>
-          {niveles.map((item) => <option key={item} value={item}>{item}</option>)}
+        <input
+          aria-label="Fecha de asistencia"
+          disabled={pending}
+          type="date"
+          value={fecha}
+          onChange={(event) => setFecha(event.target.value)}
+        />
+        <select
+          aria-label="Nivel de asistencia"
+          disabled={pending}
+          value={nivel}
+          onChange={(event) => setNivel(event.target.value)}
+        >
+          {niveles.map((item) => (
+            <option key={item} value={item}>
+              {item}
+            </option>
+          ))}
         </select>
-        <select aria-label="Curso de asistencia" disabled={pending} value={anio} onChange={(event) => setAnio(event.target.value)}>
-          {anios.map((item) => <option key={item} value={item}>{item}</option>)}
+        <select
+          aria-label="Curso de asistencia"
+          disabled={pending}
+          value={anio}
+          onChange={(event) => setAnio(event.target.value)}
+        >
+          {anios.map((item) => (
+            <option key={item} value={item}>
+              {item}
+            </option>
+          ))}
         </select>
-        <select aria-label="División de asistencia" disabled={pending} value={division} onChange={(event) => setDivision(event.target.value)}>
-          {divisiones.map((item) => <option key={item} value={item}>{item}</option>)}
+        <select
+          aria-label="División de asistencia"
+          disabled={pending}
+          value={division}
+          onChange={(event) => setDivision(event.target.value)}
+        >
+          {divisiones.map((item) => (
+            <option key={item} value={item}>
+              {item}
+            </option>
+          ))}
         </select>
-        <Button type="button" disabled={pending} onClick={cargarLista}>Cargar lista</Button>
-        <Button type="button" onClick={guardar} disabled={pending || lista.length === 0}>Guardar</Button>
-        <span className="admin-status" role="status">{estado}</span>
+        <Button type="button" disabled={pending} onClick={cargarLista}>
+          Cargar lista
+        </Button>
+        <Button type="button" onClick={guardar} disabled={pending || lista.length === 0}>
+          Guardar
+        </Button>
+        <span className="admin-status" role="status">
+          {estado}
+        </span>
       </div>
 
       {lista.length > 0 && (
@@ -105,7 +167,9 @@ export function AsistenciasSection() {
           {lista.map((item, index) => (
             <div className="admin-item" key={item.alumno.id}>
               <div>
-                <strong>{item.alumno.apellido}, {item.alumno.nombre}</strong>
+                <strong>
+                  {item.alumno.apellido}, {item.alumno.nombre}
+                </strong>
                 <span>Legajo: {item.alumno.legajo}</span>
               </div>
               <label className="asistencia-toggle">

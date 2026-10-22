@@ -6,7 +6,10 @@ import { postgresSchema } from '../server/database.js';
 
 const { Pool } = pg;
 
-const sqlitePath = resolve(process.argv.find((argument) => argument.startsWith('--sqlite='))?.slice(9) ?? 'database/educar_transformar.sqlite');
+const sqlitePath = resolve(
+  process.argv.find((argument) => argument.startsWith('--sqlite='))?.slice(9) ??
+    'database/educar_transformar.sqlite',
+);
 const replaceTarget = process.argv.includes('--replace');
 const postgresUrl =
   process.env.DATABASE_URL ??
@@ -42,7 +45,9 @@ const tables = [
 ];
 
 if (!postgresUrl) {
-  console.error('Falta DATABASE_URL. Conecta Neon en Vercel y ejecuta primero: npx vercel env pull .env.local');
+  console.error(
+    'Falta DATABASE_URL. Conecta Neon en Vercel y ejecuta primero: npx vercel env pull .env.local',
+  );
   process.exit(1);
 }
 
@@ -68,7 +73,9 @@ try {
 
   const counts = await Promise.all(
     tables.map(async (table) => {
-      const result = await client.query(`SELECT COUNT(*)::int AS total FROM ${quoteIdentifier(table)}`);
+      const result = await client.query(
+        `SELECT COUNT(*)::int AS total FROM ${quoteIdentifier(table)}`,
+      );
       return [table, result.rows[0].total];
     }),
   );
