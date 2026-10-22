@@ -1,7 +1,8 @@
 import { Footer } from './components/Footer';
 import { Header } from './components/Header';
-import { AdminPanel } from './pages/AdminPanel';
-import { LoginDemoPage } from './pages/LoginDemoPage';
+import { ManagementPage } from './pages/ManagementPage';
+import { SessionProvider, useSession } from './services/session';
+import { PortalPage } from './pages/PortalPage';
 import { NotFoundPage } from './pages/NotFoundPage';
 import { AccessSection } from './sections/AccessSection';
 import { ActivitiesSection } from './sections/ActivitiesSection';
@@ -17,15 +18,20 @@ import { NewsSection } from './sections/NewsSection';
 import { ServicesSection } from './sections/ServicesSection';
 import { TestimonialsSection } from './sections/TestimonialsSection';
 
-export default function App() {
+export default function App() { return <SessionProvider><Routes /></SessionProvider>; }
+
+function Routes() {
+  const { user, loading } = useSession();
   const path = window.location.pathname.replace(/\/+$/, '') || '/';
 
   if (path === '/admin') {
-    return <AdminPanel />;
+    if (loading) return <main className="portal-main"><p role="status">Comprobando sesión…</p></main>;
+    if (!user || user.rol !== 'admin') return <PortalPage />;
+    return <ManagementPage />;
   }
 
   if (path === '/login') {
-    return <LoginDemoPage />;
+    return <PortalPage />;
   }
 
   if (path !== '/') {

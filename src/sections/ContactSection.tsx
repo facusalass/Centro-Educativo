@@ -15,9 +15,11 @@ const initialForm: ContactoMensaje = {
 export function ContactSection() {
   const [form, setForm] = useState<ContactoMensaje>(initialForm);
   const [status, setStatus] = useState('');
+  const [pending, setPending] = useState(false);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    setPending(true);
     setStatus('Enviando consulta...');
     try {
       await api.enviarContacto(form);
@@ -25,7 +27,7 @@ export function ContactSection() {
       setStatus('Consulta recibida correctamente.');
     } catch (error) {
       setStatus(error instanceof Error ? error.message : 'No se pudo enviar la consulta.');
-    }
+    } finally { setPending(false); }
   }
 
   return (
@@ -75,7 +77,7 @@ export function ContactSection() {
             Mensaje
             <textarea required rows={4} value={form.mensaje} onChange={(event) => setForm({ ...form, mensaje: event.target.value })} />
           </label>
-          <Button type="submit"><Send size={18} /> Enviar consulta</Button>
+          <Button type="submit" disabled={pending}><Send size={18} /> Enviar consulta</Button>
           {status && <span className="form-status">{status}</span>}
         </form>
       </div>

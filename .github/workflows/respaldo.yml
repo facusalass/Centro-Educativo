@@ -1,0 +1,29 @@
+name: Respaldo diario cifrado
+on:
+  schedule:
+    - cron: '0 5 * * *'
+  workflow_dispatch:
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --omit=dev
+      - name: Respaldar PostgreSQL
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          BACKUP_KEY: ${{ secrets.BACKUP_KEY }}
+        run: |
+          test -n "$BACKUP_KEY" || { echo "Falta BACKUP_KEY para cifrar el respaldo"; exit 1; }
+          node scripts/backup.mjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: respaldo-escolar-${{ github.run_id }}
+          path: outputs/backups/*.enc
+          retention-days: 14

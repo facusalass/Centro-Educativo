@@ -16,13 +16,13 @@ const accessItems = [
   },
   {
     title: 'Alumnos',
-    description: 'Acceso demo a noticias, actividades y datos basicos de la institucion.',
+    description: 'Consultá tus evaluaciones, entregas y devoluciones docentes.',
     icon: GraduationCap,
     href: '/login',
   },
   {
     title: 'Administracion',
-    description: 'Panel general para visualizar y cargar datos principales del TP.',
+    description: 'Gestión de alumnos, docentes, inscripciones y reportes institucionales.',
     icon: UserRound,
     href: '/admin',
   },
@@ -34,7 +34,7 @@ export function AccessSection() {
       <div className="container">
         <SectionHeader
           title="Acceso a la Comunidad Educativa"
-          description="Login demo simple para roles alumno, padre, docente, personal y admin. No usa autenticacion avanzada."
+          description="Ingresá con tu cuenta para acceder a la información y las gestiones de tu comunidad educativa."
         />
         <div className="access-grid">
           {accessItems.map((item) => {

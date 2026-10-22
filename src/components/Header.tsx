@@ -44,7 +44,7 @@ export function Header() {
       </div>
 
       {open && (
-        <nav className="mobile-nav" aria-label="Navegación móvil">
+        <nav id="mobile-navigation" className="mobile-nav" aria-label="Navegación móvil">
           {navItems.map((item) => (
             <a key={item.href} href={item.href} onClick={() => setOpen(false)}>
               {item.label}

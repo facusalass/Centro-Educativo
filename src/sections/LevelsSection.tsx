@@ -2,17 +2,13 @@ import { Baby, BookOpenCheck, GraduationCap } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { SectionHeader } from '../components/SectionHeader';
 import { api } from '../services/api';
-import { nivelesFallback } from '../services/fallbackData';
+import { usePublicList } from '../services/usePublicList';
 import type { Nivel } from '../types';
 
 const levelIcons = [Baby, BookOpenCheck, GraduationCap];
 
 export function LevelsSection() {
-  const [niveles, setNiveles] = useState<Nivel[]>(nivelesFallback);
-
-  useEffect(() => {
-    api.getNiveles().then(setNiveles).catch(() => setNiveles(nivelesFallback));
-  }, []);
+  const { items: niveles, status } = usePublicList<Nivel>(api.getNiveles);
 
   return (
     <section id="niveles-educativos" className="section section-white section-compact-top">
@@ -22,6 +18,7 @@ export function LevelsSection() {
           title="Niveles Educativos"
           description="Una propuesta articulada para acompañar el crecimiento desde las primeras experiencias escolares hasta la preparación para estudios superiores."
         />
+        {status}
         <div className="levels-grid">
           {niveles.map((nivel, index) => {
             const Icon = levelIcons[index] ?? GraduationCap;

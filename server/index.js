@@ -1,4 +1,7 @@
+import { registerCore } from './core/routes.ts';
 import express from 'express';
+import { resolve } from 'node:path';
+import { existsSync } from 'node:fs';
 import cors from 'cors';
 import { fileURLToPath } from 'node:url';
 import { databaseMode, db, initializeDatabase } from './database.js';
@@ -10,8 +13,14 @@ const databaseReady = initializeDatabase().catch((error) => {
   databaseInitializationError = error;
 });
 
-app.use(cors());
-app.use(express.json());
+app.set('trust proxy', 1);
+app.use(cors({ origin: [process.env.FRONTEND_URL, 'http://localhost:5173', 'http://localhost:3001'].filter(Boolean), credentials: true }));
+app.use(express.json({ limit: '256kb' }));
+const staticDir = resolve('dist');
+if (existsSync(resolve(staticDir, 'index.html'))) {
+  app.use(express.static(staticDir));
+  app.get(/^(?!\/api(?:\/|$)).*/, (_req, res) => res.sendFile(resolve(staticDir, 'index.html')));
+}
 
 app.use(async (_req, res, next) => {
   try {
@@ -22,6 +31,8 @@ app.use(async (_req, res, next) => {
     sendDbError(res, error);
   }
 });
+
+registerCore(app);
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const phoneCharactersRegex = /^[0-9+()\s-]+$/;
@@ -38,7 +49,9 @@ function today() {
 }
 
 function sendDbError(res, error) {
-  res.status(500).json({ error: 'Error de base de datos.', detalle: error.message });
+  const conflict = ['23505', '23503', 'SQLITE_CONSTRAINT_FOREIGNKEY', 'SQLITE_CONSTRAINT_UNIQUE'].includes(error.code);
+  if (!conflict) console.error('Database error:', error.code || error.name);
+  res.status(conflict ? 409 : 500).json({ error: conflict ? 'El registro está duplicado o tiene información relacionada.' : 'No se pudo completar la operación. Volvé a intentar.' });
 }
 
 function requireFields(body, fields) {
@@ -98,7 +111,8 @@ async function getById(table, id) {
 function crudRoutes({ basePath, table, allowedFields, requiredFields, orderBy = 'id DESC', softDeleteField }) {
   app.get(basePath, async (_req, res) => {
     try {
-      res.json(await db.all(`SELECT * FROM ${table} ORDER BY ${orderBy}`));
+      const visible = ['actividades_escolares', 'galeria_imagenes'].includes(table) && _req.user?.rol !== 'admin' ? 'WHERE visible = 1' : '';
+      res.json(await db.all(`SELECT * FROM ${table} ${visible} ORDER BY ${orderBy}`));
     } catch (error) {
       sendDbError(res, error);
     }
@@ -175,7 +189,7 @@ app.get('/api/admin/bootstrap', async (_req, res) => {
       db.all('SELECT * FROM deportes ORDER BY nombre'),
       db.all('SELECT * FROM grupos_deporte ORDER BY deporte_id, nivel, dia'),
       db.all('SELECT * FROM recorridos_transporte ORDER BY id'),
-      db.all('SELECT * FROM inscripciones ORDER BY fecha_inscripcion DESC, id DESC'),
+      db.all("SELECT * FROM inscripciones WHERE estado = 'activo' ORDER BY fecha_inscripcion DESC, id DESC"),
     ]);
     res.json({ solicitudes, opiniones, postulaciones, alumnos, docentes, cursos, servicios, instalaciones, noticias, usuarios, materias, deportes, grupos, recorridos, inscripciones, asignaciones: await db.all('SELECT * FROM asignaciones_docentes') });
   } catch (error) {
@@ -253,7 +267,7 @@ app.get('/api/noticias', async (req, res) => {
 app.get('/api/noticias/:id', async (req, res) => {
   try {
     const noticia = await getById('noticias', req.params.id);
-    if (!noticia) return res.status(404).json({ error: 'Noticia no encontrada.' });
+    if (!noticia || (noticia.visible !== 1 && req.user?.rol !== 'admin')) return res.status(404).json({ error: 'Noticia no encontrada.' });
     res.json(noticia);
   } catch (error) {
     sendDbError(res, error);
@@ -437,172 +451,6 @@ app.put('/api/postulaciones/:id/estado', async (req, res) => {
   }
 });
 
-async function getUsuarios(_req, res) {
-  try {
-    res.json(await db.all('SELECT id, nombre, nombre_usuario, email, rol, estado, created_at FROM usuarios_acceso ORDER BY rol, id'));
-  } catch (error) {
-    sendDbError(res, error);
-  }
-}
-
-app.get('/api/usuarios', getUsuarios);
-app.get('/api/usuarios-acceso', getUsuarios);
-
-app.post('/api/usuarios', async (req, res) => {
-  const missing = requireFields(req.body, ['nombre', 'email', 'password_demo', 'rol']);
-  if (missing.length > 0) return res.status(400).json({ error: `Faltan campos obligatorios: ${missing.join(', ')}.` });
-  if (!emailRegex.test(req.body.email)) return res.status(400).json({ error: 'Email invalido.' });
-
-  try {
-    const id = await insertRecord('usuarios_acceso', {
-      nombre: req.body.nombre,
-      nombre_usuario: req.body.nombre_usuario ?? req.body.email.split('@')[0],
-      email: req.body.email,
-      password_demo: req.body.password_demo,
-      rol: req.body.rol,
-      estado: req.body.estado ?? 'activo',
-      referencia_id: req.body.referencia_id ?? null,
-    });
-    const { password_demo, ...usuario } = await getById('usuarios_acceso', id);
-    res.status(201).json(usuario);
-  } catch (error) {
-    sendDbError(res, error);
-  }
-});
-
-app.post('/api/padres/registro', async (req, res) => {
-  const data = normalizeBody(req.body);
-  const missing = requireFields(data, [
-    'nombre_padre',
-    'email',
-    'password',
-    'nombre_hijo',
-    'apellido_hijo',
-    'nivel',
-  ]);
-  if (missing.length > 0) {
-    return res.status(400).json({ error: `Faltan campos obligatorios: ${missing.join(', ')}.` });
-  }
-  if (!emailRegex.test(data.email)) return res.status(400).json({ error: 'Email invalido.' });
-  if (data.password.length < 6) return res.status(400).json({ error: 'La password debe tener al menos 6 caracteres.' });
-  if (!enrollmentLevels.has(data.nivel)) return res.status(400).json({ error: 'El nivel seleccionado no es valido.' });
-  const normalizedLevel = data.nivel.replace(/^Nivel\s+/, '');
-
-  try {
-    const existing = await db.get('SELECT id FROM usuarios_acceso WHERE email = ?', [data.email]);
-    if (existing) return res.status(409).json({ error: 'Ya existe una cuenta con ese email.' });
-
-    const parentId = await db.insert('usuarios_acceso', {
-      nombre: data.nombre_padre,
-      nombre_usuario: data.email.split('@')[0],
-      email: data.email,
-      password_demo: data.password,
-      rol: 'padre',
-      estado: 'activo',
-    });
-    const childId = await db.insert('alumnos', {
-      nombre: data.nombre_hijo,
-      apellido: data.apellido_hijo,
-      legajo: data.legajo_hijo ?? '',
-      dni: data.dni_hijo ?? '',
-      fecha_nacimiento: data.fecha_nacimiento_hijo ?? '',
-      domicilio: data.domicilio_hijo ?? '',
-      telefono: data.telefono_hijo ?? '',
-      email: data.email_hijo ?? '',
-      nivel: normalizedLevel,
-      curso: data.curso ?? '',
-      division: data.division ?? '',
-      tutor_nombre: data.nombre_padre,
-      tutor_email: data.email,
-      tutor_telefono: data.telefono_padre ?? '',
-      usuario_padre_id: parentId,
-      estado: 'activo',
-    });
-
-    const usuario = await db.get('SELECT id, nombre, nombre_usuario, email, rol, estado, referencia_id, created_at FROM usuarios_acceso WHERE id = ?', [parentId]);
-    res.status(201).json({ usuario, hijo: await getById('alumnos', childId) });
-  } catch (error) {
-    sendDbError(res, error);
-  }
-});
-
-app.post('/api/padres/hijos', async (req, res) => {
-  const data = normalizeBody(req.body);
-  const parentId = Number(data.usuario_padre_id);
-  const missing = requireFields(data, ['nombre_hijo', 'apellido_hijo', 'nivel']);
-  if (!parentId || missing.length > 0) {
-    return res.status(400).json({ error: `Faltan campos obligatorios: ${missing.concat(!parentId ? ['usuario_padre_id'] : []).join(', ')}.` });
-  }
-  if (!enrollmentLevels.has(data.nivel)) return res.status(400).json({ error: 'El nivel seleccionado no es valido.' });
-
-  try {
-    const parent = await db.get("SELECT id, nombre, email FROM usuarios_acceso WHERE id = ? AND rol = 'padre' AND estado = 'activo'", [parentId]);
-    if (!parent) return res.status(404).json({ error: 'La cuenta familiar no existe o no esta activa.' });
-    const childId = await db.insert('alumnos', {
-      nombre: data.nombre_hijo,
-      apellido: data.apellido_hijo,
-      legajo: data.legajo_hijo ?? '',
-      dni: data.dni_hijo ?? '',
-      fecha_nacimiento: data.fecha_nacimiento_hijo ?? '',
-      domicilio: data.domicilio_hijo ?? '',
-      telefono: data.telefono_hijo ?? '',
-      email: data.email_hijo ?? '',
-      nivel: data.nivel.replace(/^Nivel\s+/, ''),
-      curso: data.curso ?? '',
-      division: data.division ?? '',
-      tutor_nombre: parent.nombre,
-      tutor_email: parent.email,
-      tutor_telefono: data.telefono_padre ?? '',
-      usuario_padre_id: parent.id,
-      estado: 'activo',
-    });
-    res.status(201).json(await getById('alumnos', childId));
-  } catch (error) {
-    sendDbError(res, error);
-  }
-});
-
-app.put('/api/usuarios/:id', async (req, res) => {
-  try {
-    const data = selectFields(req.body, ['nombre', 'nombre_usuario', 'email', 'password_demo', 'rol', 'estado', 'referencia_id']);
-    const changes = await updateRecord('usuarios_acceso', req.params.id, data);
-    if (!changes) return res.status(404).json({ error: 'Usuario no encontrado o sin cambios.' });
-    const { password_demo, ...usuario } = await getById('usuarios_acceso', req.params.id);
-    res.json(usuario);
-  } catch (error) {
-    sendDbError(res, error);
-  }
-});
-
-app.delete('/api/usuarios/:id', async (req, res) => {
-  try {
-    const result = await db.run('DELETE FROM usuarios_acceso WHERE id = ?', [req.params.id]);
-    if (!result.changes) return res.status(404).json({ error: 'Usuario no encontrado.' });
-    res.json({ ok: true });
-  } catch (error) {
-    sendDbError(res, error);
-  }
-});
-
-
-app.post('/api/login-demo', async (req, res) => {
-  const { email, password } = req.body;
-  if (!email || !password) return res.status(400).json({ error: 'Email y password son obligatorios.' });
-
-  try {
-    const user = await db.get(
-      "SELECT * FROM usuarios_acceso WHERE email = ? AND password_demo = ? AND estado = 'activo'",
-      [email, password],
-    );
-
-    if (!user) return res.status(401).json({ error: 'Credenciales demo invalidas.' });
-    const { password_demo, ...safeUser } = user;
-    res.json({ usuario: safeUser });
-  } catch (error) {
-    sendDbError(res, error);
-  }
-});
-
 crudRoutes({
   basePath: '/api/actividades',
   table: 'actividades_escolares',
@@ -677,141 +525,6 @@ crudRoutes({
   orderBy: 'id',
 });
 
-function parseTimeRange(horario) {
-  const parts = String(horario).split('-').map((part) => part.trim());
-  if (parts.length !== 2) return null;
-  const toMinutes = (value) => {
-    const [h, m] = value.split(':').map((n) => parseInt(n, 10));
-    if (Number.isNaN(h) || Number.isNaN(m)) return null;
-    return h * 60 + m;
-  };
-  const start = toMinutes(parts[0]);
-  const end = toMinutes(parts[1]);
-  if (start === null || end === null) return null;
-  return { start, end };
-}
-
-function horariosConflict(horarioA, horarioB) {
-  const a = parseTimeRange(horarioA);
-  const b = parseTimeRange(horarioB);
-  if (!a || !b) return horarioA === horarioB;
-  return a.start < b.end && b.start < a.end;
-}
-
-async function createInscripcion(req, res) {
-  const data = normalizeBody(req.body);
-  const tipo = data.tipo;
-  const alumnoId = Number(data.alumno_id);
-
-  if (!alumnoId) return res.status(400).json({ error: 'alumno_id es obligatorio.' });
-  if (!['deporte', 'transporte', 'comedor'].includes(tipo)) {
-    return res.status(400).json({ error: 'Tipo de inscripcion invalido (deporte, transporte o comedor).' });
-  }
-
-  try {
-    const alumno = await db.get('SELECT * FROM alumnos WHERE id = ?', [alumnoId]);
-    if (!alumno) return res.status(404).json({ error: 'Alumno no encontrado.' });
-
-    const grupoDeporteId = tipo === 'deporte' ? Number(data.grupo_deporte_id) : null;
-    const recorridoId = tipo === 'transporte' ? Number(data.recorrido_id) : null;
-
-    if (tipo === 'deporte') {
-      if (!grupoDeporteId) return res.status(400).json({ error: 'grupo_deporte_id es obligatorio para inscripciones deportivas.' });
-
-      const grupo = await db.get('SELECT * FROM grupos_deporte WHERE id = ?', [grupoDeporteId]);
-      if (!grupo) return res.status(404).json({ error: 'Grupo deportivo no encontrado.' });
-      if (grupo.nivel !== alumno.nivel) {
-        return res.status(400).json({ error: 'El grupo deportivo no corresponde al nivel del alumno.' });
-      }
-
-      const inscripcionesDeportivas = await db.all(
-        "SELECT id, grupo_deporte_id FROM inscripciones WHERE alumno_id = ? AND tipo = 'deporte'",
-        [alumnoId],
-      );
-
-      if (inscripcionesDeportivas.some((inscripcion) => inscripcion.grupo_deporte_id === grupoDeporteId)) {
-        return res.status(409).json({ error: 'El alumno ya esta inscripto en este grupo deportivo.' });
-      }
-
-      if (inscripcionesDeportivas.length >= 2) {
-        return res.status(409).json({ error: 'El alumno ya esta inscripto a dos deportes (maximo permitido).' });
-      }
-
-      for (const inscripcion of inscripcionesDeportivas) {
-        const otroGrupo = await db.get('SELECT * FROM grupos_deporte WHERE id = ?', [inscripcion.grupo_deporte_id]);
-        if (otroGrupo && otroGrupo.dia === grupo.dia && horariosConflict(otroGrupo.horario, grupo.horario)) {
-          return res.status(409).json({ error: 'Conflicto de horario con otra actividad deportiva del alumno.' });
-        }
-      }
-    } else if (tipo === 'transporte') {
-      if (!recorridoId) return res.status(400).json({ error: 'recorrido_id es obligatorio para inscripciones de transporte.' });
-
-      const recorrido = await db.get('SELECT * FROM recorridos_transporte WHERE id = ?', [recorridoId]);
-      if (!recorrido) return res.status(404).json({ error: 'Recorrido no encontrado.' });
-
-      const existing = await db.get("SELECT id FROM inscripciones WHERE alumno_id = ? AND tipo = 'transporte'", [alumnoId]);
-      if (existing) return res.status(409).json({ error: 'El alumno ya esta inscripto al servicio de transporte.' });
-    } else {
-      const existing = await db.get("SELECT id FROM inscripciones WHERE alumno_id = ? AND tipo = 'comedor'", [alumnoId]);
-      if (existing) return res.status(409).json({ error: 'El alumno ya esta inscripto al servicio de comedor.' });
-    }
-
-    const id = await db.insert('inscripciones', {
-      alumno_id: alumnoId,
-      tipo,
-      grupo_deporte_id: grupoDeporteId,
-      recorrido_id: recorridoId,
-    });
-    res.status(201).json(await getById('inscripciones', id));
-  } catch (error) {
-    sendDbError(res, error);
-  }
-}
-
-app.get('/api/inscripciones', async (_req, res) => {
-  try {
-    const [inscripciones, alumnos, grupos, deportes, recorridos] = await Promise.all([
-      db.all('SELECT * FROM inscripciones ORDER BY fecha_inscripcion DESC, id DESC'),
-      db.all('SELECT * FROM alumnos'),
-      db.all('SELECT * FROM grupos_deporte'),
-      db.all('SELECT * FROM deportes'),
-      db.all('SELECT * FROM recorridos_transporte'),
-    ]);
-
-    const alumnosById = new Map(alumnos.map((a) => [a.id, a]));
-    const gruposById = new Map(grupos.map((g) => [g.id, g]));
-    const deportesById = new Map(deportes.map((d) => [d.id, d]));
-    const recorridosById = new Map(recorridos.map((r) => [r.id, r]));
-
-    res.json(
-      inscripciones.map((inscripcion) => {
-        const grupo = gruposById.get(inscripcion.grupo_deporte_id);
-        return {
-          ...inscripcion,
-          alumno: alumnosById.get(inscripcion.alumno_id) ?? null,
-          grupo: grupo ?? null,
-          deporte: grupo ? deportesById.get(grupo.deporte_id) ?? null : null,
-          recorrido: recorridosById.get(inscripcion.recorrido_id) ?? null,
-        };
-      }),
-    );
-  } catch (error) {
-    sendDbError(res, error);
-  }
-});
-
-app.post('/api/inscripciones', createInscripcion);
-
-app.delete('/api/inscripciones/:id', async (req, res) => {
-  try {
-    const result = await db.run('DELETE FROM inscripciones WHERE id = ?', [req.params.id]);
-    if (!result.changes) return res.status(404).json({ error: 'Inscripcion no encontrada.' });
-    res.json({ ok: true });
-  } catch (error) {
-    sendDbError(res, error);
-  }
-});
-
 async function loadReportData() {
   const [alumnos, docentes, cursos, asignaciones, deportes, grupos, recorridos, inscripciones] = await Promise.all([
     db.all('SELECT * FROM alumnos ORDER BY nivel, curso, apellido, nombre'),
@@ -821,7 +534,7 @@ async function loadReportData() {
     db.all('SELECT * FROM deportes ORDER BY nombre'),
     db.all('SELECT * FROM grupos_deporte'),
     db.all('SELECT * FROM recorridos_transporte ORDER BY id'),
-    db.all('SELECT * FROM inscripciones'),
+    db.all("SELECT * FROM inscripciones WHERE estado = 'activo'"),
   ]);
 
   const byId = (rows) => new Map(rows.map((r) => [r.id, r]));
@@ -1234,36 +947,10 @@ app.get('/api/asistencias/alumno/:id', async (req, res) => {
   }
 });
 
-app.get('/api/padres/hijos', async (req, res) => {
-  try {
-    const email = req.query.email;
-    const usuarioId = req.query.usuario_id ? Number(req.query.usuario_id) : null;
-    if (!email && !usuarioId) return res.status(400).json({ error: 'email o usuario_id es obligatorio.' });
-    if (usuarioId) {
-      res.json(await db.all('SELECT * FROM alumnos WHERE usuario_padre_id = ? OR tutor_email = ? ORDER BY apellido, nombre', [usuarioId, email ?? '']));
-      return;
-    }
-    res.json(await db.all('SELECT * FROM alumnos WHERE tutor_email = ? ORDER BY apellido, nombre', [email]));
-  } catch (error) {
-    sendDbError(res, error);
-  }
-});
-
-app.delete('/api/padres/hijos/:alumnoId/inscripciones/:inscripcionId', async (req, res) => {
-  const usuarioId = Number(req.query.usuario_id);
-  const alumnoId = Number(req.params.alumnoId);
-  const inscripcionId = Number(req.params.inscripcionId);
-  if (!usuarioId || !alumnoId || !inscripcionId) return res.status(400).json({ error: 'Los identificadores son obligatorios.' });
-
-  try {
-    const child = await db.get("SELECT id FROM alumnos WHERE id = ? AND usuario_padre_id = ? AND estado = 'activo'", [alumnoId, usuarioId]);
-    if (!child) return res.status(404).json({ error: 'El alumno no pertenece a esta cuenta familiar.' });
-    const result = await db.run('DELETE FROM inscripciones WHERE id = ? AND alumno_id = ?', [inscripcionId, alumnoId]);
-    if (!result.changes) return res.status(404).json({ error: 'Inscripcion no encontrada.' });
-    res.json({ ok: true });
-  } catch (error) {
-    sendDbError(res, error);
-  }
+app.use((error, _req, res, _next) => {
+  const code = ['23505', '23503', 'SQLITE_CONSTRAINT_UNIQUE', 'SQLITE_CONSTRAINT_FOREIGNKEY'].includes(error.code) ? 409 : error.status || 500;
+  if (code >= 500) console.error('Request failed:', error.code || error.name);
+  res.status(code).json({ error: code >= 500 ? 'No se pudo completar la operación. Volvé a intentar.' : code === 409 && !error.status ? 'El registro está duplicado o tiene información relacionada.' : error.message });
 });
 
 app.use((_req, res) => {

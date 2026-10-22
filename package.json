@@ -8,28 +8,47 @@
   },
   "scripts": {
     "dev": "vite",
-    "server": "node --env-file-if-exists=.env server/start.js",
-    "db:migrate": "node --env-file-if-exists=.env.local scripts/migrate-sqlite-to-postgres.js",
-    "build": "tsc && vite build",
+    "server": "node --env-file-if-exists=.env --import tsx server/start.js",
+    "db:migrate": "node --env-file-if-exists=.env --import tsx scripts/migrate-sqlite-to-postgres.js",
+    "build": "tsc && tsc -p tsconfig.server.json && vite build",
     "preview": "vite preview",
-    "start": "node --env-file-if-exists=.env server/start.js"
+    "start": "node --env-file-if-exists=.env --import tsx server/start.js",
+    "test": "node --import tsx --test tests/core.test.ts",
+    "test:e2e": "playwright test",
+    "db:upgrade": "node --env-file-if-exists=.env --import tsx scripts/upgrade.ts",
+    "mail:deliver": "node --env-file-if-exists=.env --import tsx scripts/deliver.ts",
+    "test:postgres": "node scripts/test-postgres.mjs",
+    "admin:create": "node --env-file-if-exists=.env --import tsx scripts/create-admin.ts",
+    "db:backup": "node --env-file-if-exists=.env scripts/backup.mjs",
+    "db:restore": "node --env-file-if-exists=.env --import tsx scripts/restore.ts"
   },
   "dependencies": {
+    "@vercel/functions": "^3.10.2",
     "@vitejs/plugin-react": "^5.1.1",
+    "bcryptjs": "^3.0.3",
     "cors": "^2.8.5",
     "express": "^5.2.1",
+    "express-rate-limit": "^8.7.1",
+    "helmet": "^8.3.0",
+    "jsonwebtoken": "^9.0.3",
     "lucide-react": "^0.561.0",
+    "nodemailer": "^10.2.0",
     "pg": "^8.21.0",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
+    "tsx": "^4.23.15",
     "vite": "^7.3.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.64.1",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
+    "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^25.0.3",
+    "@types/nodemailer": "^8.0.2",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
+    "embedded-postgres": "^18.4.0-beta.17",
     "typescript": "^5.9.3"
   }
 }

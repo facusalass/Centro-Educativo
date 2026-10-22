@@ -3,7 +3,7 @@ import { FormEvent, useEffect, useState } from 'react';
 import { Button } from '../components/Button';
 import { SectionHeader } from '../components/SectionHeader';
 import { api } from '../services/api';
-import { opinionesFallback } from '../services/fallbackData';
+
 import type { Opinion } from '../types';
 
 export function TestimonialsSection() {
@@ -11,17 +11,19 @@ export function TestimonialsSection() {
   const [form, setForm] = useState({ autor_anonimo: '', comentario: '' });
   const [status, setStatus] = useState('');
   const [loading, setLoading] = useState(true);
+  const [pending, setPending] = useState(false);
 
   useEffect(() => {
     api
       .getOpiniones()
       .then((items) => setOpiniones(items.filter(esOpinionPublica)))
-      .catch(() => setOpiniones(opinionesFallback.filter(esOpinionPublica)))
+      .catch(() => setStatus('No se pudieron cargar las opiniones publicadas.'))
       .finally(() => setLoading(false));
   }, []);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    setPending(true);
     setStatus('Enviando opinion...');
 
     try {
@@ -30,7 +32,7 @@ export function TestimonialsSection() {
       setStatus('Gracias. Tu opinion quedo registrada y sera publicada cuando sea moderada.');
     } catch {
       setStatus('No se pudo enviar la opinion. Verifica que el backend este en ejecucion.');
-    }
+    } finally { setPending(false); }
   }
 
   const opinionesPublicas = opiniones.filter(esOpinionPublica);
@@ -87,7 +89,7 @@ export function TestimonialsSection() {
             />
           </label>
 
-          <Button type="submit"><Send size={18} /> Enviar opinion</Button>
+          <Button type="submit" disabled={pending}><Send size={18} /> Enviar opinion</Button>
           {status && <span className="form-status">{status}</span>}
         </form>
       </div>

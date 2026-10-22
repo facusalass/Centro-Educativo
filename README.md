@@ -1,254 +1,96 @@
 # Educar para Transformar
 
-Proyecto web institucional para el centro educativo privado **Educar para Transformar**, previsto para iniciar actividades en marzo de 2027 en las afueras de Resistencia, Chaco.
+Sistema de gestión del centro educativo: sitio institucional y portales de Administración, Docentes y Familias. Se incluyen consultas del estudiante para evaluaciones, entregas y devoluciones.
 
-El proyecto esta pensado como entrega clara y explicable para **Metodologia de Sistemas I**: landing institucional, backend funcional, base SQL local, datos de prueba, formularios y panel interno simple.
+React + TypeScript + Vite; Express con núcleo de negocio TypeScript; PostgreSQL/Supabase. Todo acceso a datos pasa por la API. Las sesiones usan JWT en cookies HttpOnly y las contraseñas se guardan con BCrypt.
 
-## Stack
+## Desarrollo
 
-- Frontend: React + TypeScript + Vite.
-- Estilos: CSS comun responsive en `src/styles/global.css`.
-- Backend: Node.js + Express.
-- Base de datos: Postgres persistente en produccion via `DATABASE_URL`; SQLite queda solo como fallback de desarrollo y como origen para la migracion.
-- Iconos: `lucide-react`.
+Se requiere Node 22 y npm. Crear `.env` a partir de `.env.example`, configurar `DATABASE_URL` y generar un `JWT_SECRET` estable de al menos 32 caracteres. No versionar credenciales.
 
-## Instalacion
-
-```bash
-npm install
-```
-
-## Ejecutar backend
-
-```bash
+```powershell
+npm ci
+npm run db:upgrade
 npm run server
 ```
 
-API:
-
-```txt
-http://localhost:3001/api
-```
-
-Si existe `DATABASE_URL`, el backend usa Postgres. Si no existe, usa SQLite local en:
-
-```txt
-database/educar_transformar.sqlite
-```
-
-En Vercel, `DATABASE_URL` es obligatoria para impedir que la aplicacion guarde datos en el sistema de archivos temporal.
-
-## Ejecutar frontend
-
 En otra terminal:
 
-```bash
+```powershell
 npm run dev
 ```
 
-Sitio:
+Abrir `http://localhost:5173`. Vite redirige `/api` al backend del puerto 3001. Después de compilar, `npm start` también sirve la web completa desde `http://localhost:3001`.
 
-```txt
-http://localhost:5173
+## Datos y acceso
+
+Las migraciones son aditivas y versionadas. Antes de migrar una base existente:
+
+```powershell
+npm run db:backup
+npm run db:upgrade
 ```
 
-## Rutas frontend
+Para una base vacía, definir temporalmente `ADMIN_EMAIL` y `ADMIN_PASSWORD` en el entorno y ejecutar `npm run admin:create`. La contraseña debe tener de 10 a 72 bytes. Quitar después `ADMIN_PASSWORD` del entorno. Desde administración se crean niveles, cursos, docentes, materias y cuentas vinculadas a sus legajos.
 
-```txt
-/       Landing institucional
-/login  Login demo por roles
-/admin  Panel de gestion interno
-```
+Las familias pueden registrarse con un alumno nuevo. Para asociar un alumno ya existente, administración vincula el legajo a la cuenta familiar; no se permite reclamar un DNI registrado desde el formulario público.
 
-## Usuarios demo
+`SEED_DEMO=true` es solo para una base de demostración aislada. PostgreSQL es obligatorio en producción. SQLite queda disponible para desarrollo y pruebas; no se usa como alternativa silenciosa si falla Supabase.
 
-```txt
-admin@educar.com    / admin123
-docente@educar.com  / docente123
-padre@educar.com    / padre123
-alumno@educar.com   / alumno123
-personal@educar.com / personal123
-```
+Los cursos recuperados de legajos históricos pueden tener turno **A confirmar** y cupo **0**: revisar esos valores desde el panel antes de abrir matrículas.
 
-## Modulos representados
+## Módulos
 
-- Alumnos
-- Docentes
-- Academico: cursos, materias y asignaciones docentes
-- Deportes y grupos deportivos (nivel, horario y profesor)
-- Transporte: recorridos
-- Inscripciones (deportes, transporte y comedor) con reglas de negocio
-- Control de asistencias
-- Reportes (por alumno, por docente, por deporte, por recorrido, por materia)
-- Servicios
-- Instalaciones
-- Comunicacion: noticias, actividades, galeria y contacto
-- Solicitud de inscripcion
-- Opiniones web
-- Postulaciones de empleo
-- Acceso basico por roles (admin, docente, padre, alumno, personal)
-- Panel interno simple
+- Alumnos, docentes, legajos, usuarios y permisos.
+- Niveles, cursos, materias, asignaciones y horarios.
+- Deportes y grupos por nivel, cupo y profesor.
+- Matrícula por ciclo; deportes, cuatro recorridos y comedor.
+- Arancel mensual estimado con importes configurables.
+- Evaluaciones, enlaces a entregas, calificaciones y devolución histórica.
+- Asistencias, notificaciones y auditoría.
+- Nueve reportes con búsqueda, CSV e impresión/PDF.
+- Noticias, actividades, instalaciones, galería, opiniones moderadas, solicitudes, contacto y postulaciones.
 
-## Base de datos
+## Correo
 
-El proyecto usa **Supabase** (PostgreSQL). Al iniciar el backend se crean o actualizan automaticamente las tablas y se cargan los datos demo (solo si la base esta vacia). Unicamente se necesita la variable de entorno:
+Configurar `SMTP_HOST`, `SMTP_PORT`, `SMTP_FROM` y, si corresponde, `SMTP_USER` y `SMTP_PASSWORD`. El emisor debe estar habilitado por el proveedor. No se muestran fallos SMTP como inscripciones fallidas: el evento se guarda junto con la inscripción y se reintenta desde la cola.
 
-```txt
-DATABASE_URL
-```
+El servidor persistente procesa la cola cada 30 segundos. En Vercel las escrituras confirmadas invocan el envío con `waitUntil`. Para recuperar pendientes incluso sin tráfico, programar además `npm run mail:deliver` en un worker o scheduler. Administración puede consultar el estado y ejecutar `POST /api/admin/notificaciones/reintentar` con su sesión.
 
-En Supabase, copia la connection string desde **Project Settings → Database → Connection string → Session pooler** (usar el pooler y no la conexion directa, para evitar problemas de IPv6). Para desarrollo local:
+## Pruebas
 
-```bash
-# .env (no se sube al repo)
-DATABASE_URL="postgresql://postgres.<ref>:<password>@aws-0-<region>.pooler.supabase.com:5432/postgres"
-```
-
-En Vercel, agregar `DATABASE_URL` como variable de entorno para Production, Preview y Development.
-
-Tablas principales:
-
-- niveles_educativos
-- alumnos
-- docentes
-- cursos
-- materias
-- asignaciones_docentes
-- deportes
-- grupos_deporte
-- recorridos_transporte
-- inscripciones
-- instalaciones
-- servicios
-- alumnos_servicios
-- asistencias_diarias
-- evaluaciones
-- calificaciones_alumnos
-- usuarios_acceso
-- opiniones_web
-- solicitudes_inscripcion
-- postulaciones_empleo
-- noticias
-- actividades_escolares
-- galeria_imagenes
-- contacto_mensajes
-
-## Endpoints principales
-
-```txt
-GET  /api/health
-GET  /api/niveles
-
-GET  /api/alumnos
-GET  /api/alumnos/:id
-POST /api/alumnos
-PUT  /api/alumnos/:id
-DELETE /api/alumnos/:id
-
-GET  /api/docentes
-GET  /api/docentes/:id
-POST /api/docentes
-PUT  /api/docentes/:id
-DELETE /api/docentes/:id
-
-GET  /api/cursos
-POST /api/cursos
-PUT  /api/cursos/:id
-DELETE /api/cursos/:id
-
-GET  /api/asignaciones-docentes
-POST /api/asignaciones-docentes
-PUT  /api/asignaciones-docentes/:id
-DELETE /api/asignaciones-docentes/:id
-
-GET  /api/servicios
-POST /api/servicios
-PUT  /api/servicios/:id
-DELETE /api/servicios/:id
-
-GET  /api/instalaciones
-POST /api/instalaciones
-PUT  /api/instalaciones/:id
-DELETE /api/instalaciones/:id
-
-GET  /api/noticias
-GET  /api/noticias/:id
-POST /api/noticias
-PUT  /api/noticias/:id
-DELETE /api/noticias/:id
-
-GET  /api/opiniones
-POST /api/opiniones
-PUT  /api/opiniones/:id/moderar
-
-GET  /api/solicitudes-inscripcion
-POST /api/solicitudes-inscripcion
-PUT  /api/solicitudes-inscripcion/:id/estado
-
-GET  /api/postulaciones
-POST /api/postulaciones
-PUT  /api/postulaciones/:id/estado
-
-GET  /api/usuarios
-POST /api/usuarios
-PUT  /api/usuarios/:id
-POST /api/login-demo
-
-GET  /api/actividades
-POST /api/actividades
-PUT  /api/actividades/:id
-DELETE /api/actividades/:id
-
-GET  /api/galeria
-POST /api/galeria
-PUT  /api/galeria/:id
-DELETE /api/galeria/:id
-
-POST /api/contacto
-GET  /api/contacto
-
-GET  /api/materias
-POST /api/materias
-PUT  /api/materias/:id
-DELETE /api/materias/:id
-
-GET  /api/deportes
-POST /api/deportes
-PUT  /api/deportes/:id
-DELETE /api/deportes/:id
-
-GET  /api/grupos-deporte
-POST /api/grupos-deporte
-
-GET  /api/recorridos
-POST /api/recorridos
-
-GET  /api/inscripciones
-POST /api/inscripciones
-DELETE /api/inscripciones/:id
-
-GET  /api/asistencias
-POST /api/asistencias
-GET  /api/asistencias/alumno/:id
-
-GET  /api/padres/hijos?email=
-
-GET  /api/reportes/alumno/:id
-GET  /api/reportes/docente/:id
-GET  /api/reportes/alumnos-por-deporte
-GET  /api/reportes/alumnos-por-deporte-nivel
-GET  /api/reportes/alumnos-por-deporte-detalle
-GET  /api/reportes/alumnos-por-recorrido
-GET  /api/reportes/alumnos-por-materia
-GET  /api/reportes/docentes-por-nivel
-```
-
-## Validacion
-
-Comando de build:
-
-```bash
+```powershell
 npm run build
+npm test
+npm run test:postgres
+npm run test:e2e
 ```
 
-El backend valida campos obligatorios y formato de email en formularios principales. El frontend muestra mensajes de carga, exito y error en inscripcion, opinion, postulacion y contacto.
+- `npm test`: integración con SQLite temporal; no lee `.env` ni toca Supabase.
+- `test:postgres`: misma suite con PostgreSQL nativo aislado; comprueba además cifrado y recuperación en otra base vacía. Usa el puerto local 15439 y guarda archivos en `outputs/`.
+- `test:e2e`: flujos completos en Edge mediante Playwright, con una base temporal independiente. Usa el puerto 3101. Para otro navegador, modificar `channel` en `playwright.config.ts` o instalar Chromium con Playwright.
+- Capturas e informe HTML: `outputs/`. Estos archivos y todos los respaldos están excluidos de Git y Vercel.
+
+## Respaldo y recuperación
+
+`npm run db:backup` guarda un snapshot transaccional de las tablas de la aplicación. Si existe `BACKUP_KEY` —32 bytes en base64— lo cifra con AES-256-GCM. Guardar la clave separada del archivo.
+
+El workflow `.github/workflows/respaldo.yml` programa un respaldo diario a las 05:00 UTC (02:00 en Argentina). Requiere los secrets de GitHub `DATABASE_URL` y `BACKUP_KEY` y estar en la rama predeterminada. Conserva los artefactos cifrados durante 14 días; configurar almacenamiento adicional según la política institucional.
+
+Restaurar en una base nueva, configurada en `DATABASE_URL`:
+
+```powershell
+npm run db:restore -- --file=outputs/backups/ARCHIVO.enc
+```
+
+La restauración rechaza bases con datos. `--replace` autoriza explícitamente reemplazarlos y debe usarse solo tras respaldar el destino y detener las escrituras. Verificar login, reportes y matrículas antes de habilitar tráfico.
+
+## Vercel
+
+El proyecto conserva su configuración de Vercel y el endpoint `/api`. Configurar por entorno `DATABASE_URL` y `JWT_SECRET`; para correo, las variables SMTP. `FRONTEND_URL` solo es necesario cuando frontend y API usan orígenes distintos.
+
+Las contraseñas históricas se migran a hashes y se vacía el campo demo. El código anterior de login queda incompatible con esa migración: publicar el backend nuevo como parte del mismo cambio. Las cookies de producción requieren HTTPS.
+
+La publicación y la transferencia de credenciales a un nuevo entorno necesitan autorización del titular. El repositorio no contiene las credenciales.
+
+Ver [cumplimiento del plan](docs/cumplimiento-plan.md) para la trazabilidad de requisitos y los puntos de operación pendientes de configuración.

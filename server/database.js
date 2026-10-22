@@ -1,3 +1,4 @@
+import { AsyncLocalStorage } from 'node:async_hooks';
 import pg from 'pg';
 import { DatabaseSync } from 'node:sqlite';
 import { mkdirSync } from 'node:fs';
@@ -23,6 +24,11 @@ if (process.env.VERCEL && !postgresUrl) {
 }
 
 export const databaseMode = postgresUrl ? 'postgres' : 'sqlite';
+if (process.env.NODE_ENV === 'production' && !postgresUrl) throw new Error('DATABASE_URL es obligatoria en producción.');
+const transactionContext = new AsyncLocalStorage();
+let sqliteQueue = Promise.resolve();
+const queryClient = () => transactionContext.getStore() ?? pool;
+
 
 let pool;
 let sqlite;
@@ -30,12 +36,14 @@ let sqlite;
 if (databaseMode === 'postgres') {
   pool = new Pool({
     connectionString: postgresUrl,
-    max: 1,
+    max: Number(process.env.DATABASE_POOL_SIZE || 5),
+    connectionTimeoutMillis: 10000,
+    idleTimeoutMillis: 30000,
     ssl: postgresUrl.includes('sslmode=disable') ? false : { rejectUnauthorized: false },
   });
 } else {
   mkdirSync(sqliteDatabaseDir, { recursive: true });
-  sqlite = new DatabaseSync(join(sqliteDatabaseDir, 'educar_transformar.sqlite'));
+  sqlite = new DatabaseSync(process.env.SQLITE_PATH ?? join(sqliteDatabaseDir, 'educar_transformar.sqlite'));
 }
 
 const sqliteSchema = `
@@ -536,25 +544,27 @@ function fieldsToObject(fields, row) {
 
 async function exec(sql) {
   if (databaseMode === 'postgres') {
-    await pool.query(sql);
+    await queryClient().query(sql);
     return;
   }
 
   sqlite.exec(sql);
 }
 
+/** @returns {Promise<Record<string, any>[]>} */
 async function all(sql, params = []) {
   if (databaseMode === 'postgres') {
-    const result = await pool.query(toPostgresQuery(sql), params);
+    const result = await queryClient().query(toPostgresQuery(sql), params);
     return result.rows;
   }
 
   return sqlite.prepare(sql).all(...params);
 }
 
+/** @returns {Promise<any>} */
 async function get(sql, params = []) {
   if (databaseMode === 'postgres') {
-    const result = await pool.query(toPostgresQuery(sql), params);
+    const result = await queryClient().query(toPostgresQuery(sql), params);
     return result.rows[0];
   }
 
@@ -563,7 +573,7 @@ async function get(sql, params = []) {
 
 async function run(sql, params = []) {
   if (databaseMode === 'postgres') {
-    const result = await pool.query(toPostgresQuery(sql), params);
+    const result = await queryClient().query(toPostgresQuery(sql), params);
     return { changes: result.rowCount };
   }
 
@@ -578,7 +588,7 @@ async function insert(table, data, options = {}) {
   if (databaseMode === 'postgres') {
     const placeholders = fields.map((_, index) => `$${index + 1}`).join(', ');
     const conflictClause = options.ignoreConflict ? ` ON CONFLICT (${options.ignoreConflict}) DO NOTHING` : '';
-    const result = await pool.query(
+    const result = await queryClient().query(
       `INSERT INTO ${table} (${fields.join(', ')}) VALUES (${placeholders})${conflictClause} RETURNING id`,
       values,
     );
@@ -625,7 +635,37 @@ async function insertMany(table, fields, rows, options = {}) {
   }
 }
 
+// A transaction always uses one checked-out Postgres connection. The domain lock
+// serializes school writes across instances; reads remain concurrent (MVCC).
+async function transaction(work) {
+  if (transactionContext.getStore()) return work();
+  if (databaseMode === 'postgres') {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query('SELECT pg_advisory_xact_lock(1902027)');
+      const result = await transactionContext.run(client, work);
+      await client.query('COMMIT');
+      return result;
+    } catch (error) { await client.query('ROLLBACK'); throw error; }
+    finally { client.release(); }
+  }
+  const previous = sqliteQueue;
+  let release;
+  sqliteQueue = new Promise((resolve) => { release = resolve; });
+  await previous;
+  try {
+    sqlite.exec('BEGIN IMMEDIATE');
+    const result = await transactionContext.run({ sqlite: true }, work);
+    sqlite.exec('COMMIT');
+    return result;
+  } catch (error) { sqlite.exec('ROLLBACK'); throw error; }
+  finally { release(); }
+}
+
 export const db = {
+  transaction,
+  close: async () => { if (pool) await pool.end(); if (sqlite) sqlite.close(); },
   exec,
   all,
   get,
@@ -666,19 +706,26 @@ const rlsTables = [
 async function enableRowLevelSecurity() {
   if (databaseMode !== 'postgres') return;
   for (const table of rlsTables) {
-    await pool.query(`ALTER TABLE ${table} ENABLE ROW LEVEL SECURITY`);
+    await queryClient().query(`ALTER TABLE ${table} ENABLE ROW LEVEL SECURITY`);
   }
 }
 
 export async function initializeDatabase() {
-  if (process.env.VERCEL && process.env.DATABASE_SCHEMA_READY === 'true') {
-    await get('SELECT 1');
-    return;
+  // Warm/cold serverless starts only verify the version, without rerunning DDL.
+  if (process.env.SEED_DEMO !== 'true') {
+    try { if (Number((await get('SELECT MAX(version) AS version FROM schema_migrations'))?.version) >= 4) return; }
+    catch (error) { if (error.code !== '42P01' && !String(error.message).includes('no such table')) throw error; }
   }
+  await transaction(async () => {
   await exec(databaseMode === 'postgres' ? postgresSchema : sqliteSchema);
   await runMigrations();
   await enableRowLevelSecurity();
-  await seedDatabase();
+  if (process.env.SEED_DEMO === 'true') await seedDatabase();
+  const { migrateCore } = await import('./core/migrations.ts');
+  await migrateCore();
+  const { migrateConstraints } = await import('./core/constraints.ts');
+  await migrateConstraints();
+  });
 }
 
 async function runMigrations() {

@@ -2,7 +2,7 @@ import { CalendarDays, ArrowRight } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { SectionHeader } from '../components/SectionHeader';
 import { api } from '../services/api';
-import { noticiasFallback } from '../services/fallbackData';
+import { usePublicList } from '../services/usePublicList';
 import type { Noticia } from '../types';
 
 function formatDate(date: string) {
@@ -10,11 +10,8 @@ function formatDate(date: string) {
 }
 
 export function NewsSection() {
-  const [noticias, setNoticias] = useState<Noticia[]>(noticiasFallback);
-
-  useEffect(() => {
-    api.getNoticias().then(setNoticias).catch(() => setNoticias(noticiasFallback));
-  }, []);
+  const [selected, setSelected] = useState<Noticia | null>(null);
+  const { items: noticias, status } = usePublicList<Noticia>(api.getNoticias);
 
   return (
     <section id="noticias" className="section section-gray">
@@ -23,6 +20,8 @@ export function NewsSection() {
           title="Noticias y Novedades"
           description="Información institucional para familias, estudiantes y equipo educativo."
         />
+        {status}
+        {selected && <dialog className="news-detail" ref={(element) => { if (element && !element.open) element.showModal(); }} onCancel={() => setSelected(null)} aria-label={selected.titulo}><button autoFocus className="text-button" onClick={() => setSelected(null)}>Cerrar noticia</button><h2>{selected.titulo}</h2><p>{selected.contenido || selected.descripcion}</p></dialog>}
         <div className="news-grid">
           {noticias.map((noticia) => (
             <article className="news-card" key={noticia.id}>
@@ -32,7 +31,7 @@ export function NewsSection() {
                 <strong>{noticia.tipo}</strong>
                 <h3>{noticia.titulo}</h3>
                 <p>{noticia.descripcion}</p>
-                <button className="text-button">Leer más <ArrowRight size={16} /></button>
+                <button className="text-button" onClick={() => setSelected(noticia)}>Leer más <ArrowRight size={16} /></button>
               </div>
             </article>
           ))}

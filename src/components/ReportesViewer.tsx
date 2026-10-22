@@ -22,6 +22,7 @@ interface ReportesViewerProps {
 }
 
 export function ReportesViewer({ alumnos, docentes }: ReportesViewerProps) {
+  const [search, setSearch] = useState('');
   const [tipo, setTipo] = useState<string>('alumnos-por-curso');
   const [idConsulta, setIdConsulta] = useState<string>('');
   const [salida, setSalida] = useState<unknown>(null);
@@ -29,6 +30,7 @@ export function ReportesViewer({ alumnos, docentes }: ReportesViewerProps) {
   const [fechaGeneracion, setFechaGeneracion] = useState<string>('');
 
   async function cargar() {
+    setSalida(null);
     setEstado('Generando reporte...');
     setFechaGeneracion(new Date().toLocaleString('es-AR'));
     try {
@@ -77,6 +79,16 @@ export function ReportesViewer({ alumnos, docentes }: ReportesViewerProps) {
     cargar();
   }, [tipo]);
 
+  const filtered = Array.isArray(salida) ? salida.filter((row) => JSON.stringify(row).toLocaleLowerCase().includes(search.toLocaleLowerCase())) : salida && JSON.stringify(salida).toLocaleLowerCase().includes(search.toLocaleLowerCase()) ? salida : null;
+  function exportCsv() {
+    const rows = [...document.querySelectorAll('#printable-report table tr')].map((row) => [...row.querySelectorAll('th,td')].map((cell) => {
+      let text = cell.textContent?.trim() || '';
+      if (/^[=+@-]/.test(text)) text = "'" + text;
+      return '"' + text.replace(/"/g, '""') + '"';
+    }).join(';')).join('\r\n');
+    const url = URL.createObjectURL(new Blob(['\uFEFF' + rows], { type: 'text/csv;charset=utf-8' }));
+    const anchor = document.createElement('a'); anchor.href = url; anchor.download = `reporte-${tipo}.csv`; anchor.click(); URL.revokeObjectURL(url);
+  }
   function handlePrint() {
     window.print();
   }
@@ -102,7 +114,7 @@ export function ReportesViewer({ alumnos, docentes }: ReportesViewerProps) {
         </p>
 
         <div className="reportes-controls" style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', alignItems: 'center' }}>
-          <select value={tipo} onChange={(e) => { setTipo(e.target.value); setIdConsulta(''); }}>
+          <select value={tipo} onChange={(e) => { setTipo(e.target.value); setIdConsulta(''); setSearch(''); }}>
             <option value="alumnos-por-curso">1. Alumnos por Curso / Grado</option>
             <option value="alumnos-por-deporte">2. Alumnos por Deporte</option>
             <option value="alumnos-por-deporte-nivel">3. Alumnos por Deporte y Nivel</option>
@@ -140,11 +152,13 @@ export function ReportesViewer({ alumnos, docentes }: ReportesViewerProps) {
             </select>
           )}
 
+          <input aria-label="Buscar en el reporte" placeholder="Buscar por nivel, curso o apellido…" value={search} onChange={(event) => setSearch(event.target.value)} />
+          <Button type="button" variant="outline" onClick={exportCsv} disabled={!filtered}><Download size={16} /> Exportar CSV</Button>
           <Button type="button" onClick={cargar}>
             <Search size={16} /> Actualizar Reporte
           </Button>
 
-          {salida !== null && (
+          {filtered !== null && (
             <Button type="button" variant="outline" onClick={handlePrint}>
               <Printer size={16} /> Guardar / Descargar PDF
             </Button>
@@ -154,7 +168,7 @@ export function ReportesViewer({ alumnos, docentes }: ReportesViewerProps) {
         </div>
       </div>
 
-      {salida !== null && (
+      {filtered !== null && (
         <div id="printable-report" className="report-container">
           <div className="report-header-print">
             <div>
@@ -176,15 +190,15 @@ export function ReportesViewer({ alumnos, docentes }: ReportesViewerProps) {
           </div>
 
           {/* RENDER REPORT TABLES BY TYPE */}
-          {tipo === 'alumnos-por-curso' && renderAlumnosPorCurso(salida as AlumnosPorCurso)}
-          {tipo === 'alumnos-por-deporte' && renderAlumnosPorDeporte(salida as AlumnosPorDeporte)}
-          {tipo === 'alumnos-por-deporte-nivel' && renderAlumnosPorDeporteNivel(salida as AlumnosPorDeporteNivel)}
-          {tipo === 'alumnos-por-deporte-detalle' && renderAlumnosPorDeporteDetalle(salida as AlumnosPorDeporteDetalle)}
-          {tipo === 'alumnos-por-recorrido' && renderAlumnosPorRecorrido(salida as AlumnosPorRecorrido)}
-          {tipo === 'alumnos-por-materia' && renderAlumnosPorMateria(salida as AlumnosPorMateria)}
-          {tipo === 'docentes-por-nivel' && renderDocentesPorNivel(salida as DocentesPorNivel)}
-          {tipo === 'alumno' && renderReporteAlumno(salida as ReporteAlumno)}
-          {tipo === 'docente' && renderReporteDocente(salida as ReporteDocente)}
+          {tipo === 'alumnos-por-curso' && renderAlumnosPorCurso(filtered as AlumnosPorCurso)}
+          {tipo === 'alumnos-por-deporte' && renderAlumnosPorDeporte(filtered as AlumnosPorDeporte)}
+          {tipo === 'alumnos-por-deporte-nivel' && renderAlumnosPorDeporteNivel(filtered as AlumnosPorDeporteNivel)}
+          {tipo === 'alumnos-por-deporte-detalle' && renderAlumnosPorDeporteDetalle(filtered as AlumnosPorDeporteDetalle)}
+          {tipo === 'alumnos-por-recorrido' && renderAlumnosPorRecorrido(filtered as AlumnosPorRecorrido)}
+          {tipo === 'alumnos-por-materia' && renderAlumnosPorMateria(filtered as AlumnosPorMateria)}
+          {tipo === 'docentes-por-nivel' && renderDocentesPorNivel(filtered as DocentesPorNivel)}
+          {tipo === 'alumno' && renderReporteAlumno(filtered as ReporteAlumno)}
+          {tipo === 'docente' && renderReporteDocente(filtered as ReporteDocente)}
         </div>
       )}
     </section>

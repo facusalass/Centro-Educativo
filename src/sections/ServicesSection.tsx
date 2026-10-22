@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { IconMap } from '../components/IconMap';
 import { SectionHeader } from '../components/SectionHeader';
 import { api } from '../services/api';
-import { serviciosFallback } from '../services/fallbackData';
+import { usePublicList } from '../services/usePublicList';
 import type { Servicio } from '../types';
 
 const wellbeing = [
@@ -13,11 +13,7 @@ const wellbeing = [
 ];
 
 export function ServicesSection() {
-  const [servicios, setServicios] = useState<Servicio[]>(serviciosFallback);
-
-  useEffect(() => {
-    api.getServicios().then(setServicios).catch(() => setServicios(serviciosFallback));
-  }, []);
+  const { items: servicios, status } = usePublicList<Servicio>(api.getServicios);
 
   return (
     <section id="servicios" className="section section-blue">
@@ -28,6 +24,7 @@ export function ServicesSection() {
           title="Servicios del Colegio"
           description="El desarrollo integral de nuestros estudiantes es una prioridad institucional."
         />
+        {status}
         <div className="services-grid">
           {servicios.map((servicio) => (
             <article className="service-card" key={servicio.id}>
