@@ -1,4 +1,4 @@
-import { assert } from './errors.ts';
+import { assert } from './errors.js';
 
 export function objectBody(value: unknown): Record<string, unknown> {
   assert(

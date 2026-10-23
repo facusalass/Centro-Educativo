@@ -4,7 +4,7 @@ import bcrypt from 'bcryptjs';
 import { rateLimit } from 'express-rate-limit';
 import { randomBytes } from 'node:crypto';
 import { db } from '../database.js';
-import { assert, HttpError } from './errors.ts';
+import { assert, HttpError } from './errors.js';
 
 export type User = {
   id: number;

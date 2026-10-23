@@ -1,8 +1,8 @@
 import type { Express, Request } from 'express';
 import { db } from '../database.js';
-import { assert, idOf } from './errors.ts';
-import { audit } from './security.ts';
-import { calendarDate, objectBody } from './validation.ts';
+import { assert, idOf } from './errors.js';
+import { audit } from './security.js';
+import { calendarDate, objectBody } from './validation.js';
 
 async function accessibleStudents(req: Request, ids?: number[]) {
   const conditions = ["a.estado = 'activo'"];

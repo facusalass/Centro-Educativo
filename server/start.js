@@ -1,6 +1,6 @@
 import app, { databaseReady } from './index.js';
 import { db } from './database.js';
-import { deliverPending } from './core/notifications.ts';
+import { deliverPending } from './core/notifications.js';
 
 const port = Number(process.env.PORT || 3001);
 await databaseReady;

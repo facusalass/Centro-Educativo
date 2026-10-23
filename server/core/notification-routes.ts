@@ -1,7 +1,7 @@
 import type { Express } from 'express';
 import { db, databaseMode } from '../database.js';
-import { assert, idOf } from './errors.ts';
-import { deliverPending } from './notifications.ts';
+import { assert, idOf } from './errors.js';
+import { deliverPending } from './notifications.js';
 export function registerNotificationRoutes(app: Express) {
   app.get('/api/admin/status', async (_req, res) => {
     res.json({

@@ -268,9 +268,9 @@ export async function initializeDatabase() {
     await runMigrations();
     await enableRowLevelSecurity();
     if (process.env.SEED_DEMO === 'true') await seedDatabase();
-    const { migrateCore } = await import('./core/migrations.ts');
+    const { migrateCore } = await import('./core/migrations.js');
     await migrateCore();
-    const { migrateConstraints } = await import('./core/constraints.ts');
+    const { migrateConstraints } = await import('./core/constraints.js');
     await migrateConstraints();
   });
 }

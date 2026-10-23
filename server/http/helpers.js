@@ -1,5 +1,5 @@
-import { errorResponse } from './errors.ts';
-import { objectBody } from '../core/validation.ts';
+import { errorResponse } from './errors.js';
+import { objectBody } from '../core/validation.js';
 import { db } from '../database.js';
 export const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const phoneCharactersRegex = /^[0-9+()\s-]+$/;

@@ -1,10 +1,10 @@
 import type { Express, Request } from 'express';
 import { db } from '../database.js';
-import { assert, idOf } from './errors.ts';
-import { requireStudent, audit } from './security.ts';
-import { groupBy } from './collections.ts';
-import { calendarDate, httpsUrl } from './validation.ts';
-import { publish } from './notifications.ts';
+import { assert, idOf } from './errors.js';
+import { requireStudent, audit } from './security.js';
+import { groupBy } from './collections.js';
+import { calendarDate, httpsUrl } from './validation.js';
+import { publish } from './notifications.js';
 
 async function requireEvaluation(req: Request, id: number, studentId?: number) {
   const item = await db.get('SELECT * FROM evaluaciones WHERE id = ?', [id]);

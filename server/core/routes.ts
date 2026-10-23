@@ -1,13 +1,13 @@
 import type { Express } from 'express';
 import { waitUntil } from '@vercel/functions';
-import { installSecurity } from './security.ts';
-import { registerEntities } from './entities.ts';
-import { registerAcademic } from './academic.ts';
-import { registerFamilyRoutes } from './families.ts';
-import { registerAttendanceRoutes } from './attendance.ts';
-import { registerEnrollmentRoutes } from './enrollment-routes.ts';
-import { registerNotificationRoutes } from './notification-routes.ts';
-import { deliverPending } from './notifications.ts';
+import { installSecurity } from './security.js';
+import { registerEntities } from './entities.js';
+import { registerAcademic } from './academic.js';
+import { registerFamilyRoutes } from './families.js';
+import { registerAttendanceRoutes } from './attendance.js';
+import { registerEnrollmentRoutes } from './enrollment-routes.js';
+import { registerNotificationRoutes } from './notification-routes.js';
+import { deliverPending } from './notifications.js';
 
 export function registerCore(app: Express) {
   installSecurity(app);

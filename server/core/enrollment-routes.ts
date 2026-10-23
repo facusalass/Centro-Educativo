@@ -1,7 +1,7 @@
 import type { Express } from 'express';
 import { db } from '../database.js';
-import { enroll, cancelEnrollment, matriculate } from './enrollment.ts';
-import { listEnrollments } from './enrollment-queries.ts';
+import { enroll, cancelEnrollment, matriculate } from './enrollment.js';
+import { listEnrollments } from './enrollment-queries.js';
 export function registerEnrollmentRoutes(app: Express) {
   app.post('/api/inscripciones', async (req, res) => res.status(201).json(await enroll(req)));
   app.delete('/api/inscripciones/:id', async (req, res) =>

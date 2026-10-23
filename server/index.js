@@ -4,17 +4,29 @@ import helmet from 'helmet';
 import { resolve } from 'node:path';
 import { existsSync } from 'node:fs';
 import { databaseMode, initializeDatabase } from './database.js';
-import { registerCore } from './core/routes.ts';
+import { registerCore } from './core/routes.js';
 import { registerReports } from './routes/reports.js';
 import { registerPublicRoutes } from './routes/public.js';
 import { registerAdminRoutes } from './routes/admin.js';
-import { errorHandler } from './http/errors.ts';
+import { errorHandler } from './http/errors.js';
 
 const app = express();
 export const databaseReady = initializeDatabase();
 // Serverless imports can finish before the first request; the request middleware
 // below remains responsible for propagating initialization errors to the client.
-databaseReady.catch(() => {});
+databaseReady.catch((error) => {
+  let message = String(error?.message || 'Unknown database error');
+  for (const key of [
+    'DATABASE_URL',
+    'POSTGRES_URL',
+    'POSTGRES_PRISMA_URL',
+    'POSTGRES_URL_NON_POOLING',
+  ]) {
+    if (process.env[key]) message = message.replaceAll(process.env[key], '[redacted]');
+  }
+  message = message.replace(/postgres(?:ql)?:\/\/\S+/gi, '[redacted]');
+  console.error('Database initialization failed:', error?.code || error?.name, message);
+});
 
 app.set('trust proxy', 1);
 app.use(

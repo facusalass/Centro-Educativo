@@ -1,9 +1,9 @@
 import bcrypt from 'bcryptjs';
 import { db } from '../database.js';
-import { assert, idOf } from './errors.ts';
-import { validatePassword } from './security.ts';
-import { overlaps, validateSchedule } from './enrollment.ts';
-import { entities } from './entity-definitions.ts';
+import { assert, idOf } from './errors.js';
+import { validatePassword } from './security.js';
+import { overlaps, validateSchedule } from './enrollment.js';
+import { entities } from './entity-definitions.js';
 export async function validateEntity(key: string, incoming: any, id?: number) {
   const def = entities[key];
   const previous = id ? await db.get(`SELECT * FROM ${def.table} WHERE id = ?`, [id]) : {};

@@ -1,7 +1,7 @@
 import type { Express } from 'express';
 import bcrypt from 'bcryptjs';
 import { db } from '../database.js';
-import { assert, idOf } from './errors.ts';
+import { assert, idOf } from './errors.js';
 import {
   audit,
   requireStudent,
@@ -9,9 +9,9 @@ import {
   setSession,
   validatePassword,
   type User,
-} from './security.ts';
-import { objectBody } from './validation.ts';
-import { monthlyQuote } from './fees.ts';
+} from './security.js';
+import { objectBody } from './validation.js';
+import { monthlyQuote } from './fees.js';
 
 async function createChild(
   input: Record<string, unknown>,

@@ -1,10 +1,10 @@
 import type { Express, Request, Response } from 'express';
 import { db } from '../database.js';
-import { assert, idOf } from './errors.ts';
-import { audit, safeUser } from './security.ts';
-import { publish } from './notifications.ts';
-import { entities } from './entity-definitions.ts';
-import { validateEntity } from './entity-validation.ts';
+import { assert, idOf } from './errors.js';
+import { audit, safeUser } from './security.js';
+import { publish } from './notifications.js';
+import { entities } from './entity-definitions.js';
+import { validateEntity } from './entity-validation.js';
 export function registerEntities(app: Express) {
   for (const [key, def] of Object.entries(entities)) {
     // Keep detail reads in the same module as writes. News has a separate

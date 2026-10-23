@@ -1,6 +1,6 @@
 import type { Request } from 'express';
 import { db } from '../database.js';
-import { byId } from './collections.ts';
+import { byId } from './collections.js';
 
 type RelatedTable = 'alumnos' | 'grupos_deporte' | 'deportes' | 'recorridos_transporte';
 type RelatedRecord = { id: number; [key: string]: unknown };

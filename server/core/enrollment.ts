@@ -1,8 +1,8 @@
 import type { Request } from 'express';
 import { db } from '../database.js';
-import { assert, idOf } from './errors.ts';
-import { requireStudent, audit } from './security.ts';
-import { publish } from './notifications.ts';
+import { assert, idOf } from './errors.js';
+import { requireStudent, audit } from './security.js';
+import { publish } from './notifications.js';
 
 export const weekdays = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
 const normalize = (s: string) =>
