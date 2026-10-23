@@ -1,6 +1,6 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm } from 'node:fs/promises';
 import { resolve, join } from 'node:path';
 import { once } from 'node:events';
 import net from 'node:net';
@@ -24,6 +24,7 @@ async function api(path: string, cookie = '', method = 'GET', body?: unknown) {
   };
 }
 before(async () => {
+  await mkdir('outputs', { recursive: true });
   dir = await mkdtemp(resolve('outputs/core-tests-'));
   for (const key of [
     'DATABASE_URL',
