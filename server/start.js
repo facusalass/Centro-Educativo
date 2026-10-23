@@ -1,9 +1,9 @@
-import app, { databaseReady } from './index.js';
+import app, { ensureDatabaseReady } from './index.js';
 import { db } from './database.js';
 import { deliverPending } from './core/notifications.js';
 
 const port = Number(process.env.PORT || 3001);
-await databaseReady;
+await ensureDatabaseReady();
 const server = app.listen(port, () => {
   console.log(`Educar para Transformar disponible en http://localhost:${port}`);
 });

@@ -11,22 +11,26 @@ import { registerAdminRoutes } from './routes/admin.js';
 import { errorHandler } from './http/errors.js';
 
 const app = express();
-export const databaseReady = initializeDatabase();
-// Serverless imports can finish before the first request; the request middleware
-// below remains responsible for propagating initialization errors to the client.
-databaseReady.catch((error) => {
-  let message = String(error?.message || 'Unknown database error');
-  for (const key of [
-    'DATABASE_URL',
-    'POSTGRES_URL',
-    'POSTGRES_PRISMA_URL',
-    'POSTGRES_URL_NON_POOLING',
-  ]) {
-    if (process.env[key]) message = message.replaceAll(process.env[key], '[redacted]');
-  }
-  message = message.replace(/postgres(?:ql)?:\/\/\S+/gi, '[redacted]');
-  console.error('Database initialization failed:', error?.code || error?.name, message);
-});
+let databaseReady;
+// Start inside the request lifecycle; retry after transient connection failures.
+export function ensureDatabaseReady() {
+  databaseReady ??= initializeDatabase().catch((error) => {
+    databaseReady = undefined;
+    let message = String(error?.message || 'Unknown database error');
+    for (const key of [
+      'DATABASE_URL',
+      'POSTGRES_URL',
+      'POSTGRES_PRISMA_URL',
+      'POSTGRES_URL_NON_POOLING',
+    ]) {
+      if (process.env[key]) message = message.replaceAll(process.env[key], '[redacted]');
+    }
+    message = message.replace(/postgres(?:ql)?:\/\/\S+/gi, '[redacted]');
+    console.error('Database initialization failed:', error?.code || error?.name, message);
+    throw error;
+  });
+  return databaseReady;
+}
 
 app.set('trust proxy', 1);
 app.use(
@@ -49,7 +53,7 @@ if (existsSync(resolve(staticDir, 'index.html'))) {
 }
 
 app.use(async (_req, _res, next) => {
-  await databaseReady;
+  await ensureDatabaseReady();
   next();
 });
 registerCore(app);
