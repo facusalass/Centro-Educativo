@@ -9,9 +9,10 @@ import type {
   DocentesPorNivel,
   AlumnosPorCurso,
 } from '../../types';
+
 // 1. Alumnos por Curso
 export function renderAlumnosPorCurso(cursos: AlumnosPorCurso) {
-  if (!cursos || cursos.length === 0) {
+  if (!cursos || !Array.isArray(cursos) || cursos.length === 0) {
     return <p>No hay cursos con alumnos registrados.</p>;
   }
 
@@ -34,7 +35,7 @@ export function renderAlumnosPorCurso(cursos: AlumnosPorCurso) {
               {c.nivel} — {c.anio} "{c.division}"
             </strong>
             <span className="badge badge-blue">
-              Turno {c.turno} • {c.alumnos.length} Alumnos
+              Turno {c.turno} • {c.alumnos?.length ?? 0} Alumnos
             </span>
           </div>
 
@@ -51,8 +52,8 @@ export function renderAlumnosPorCurso(cursos: AlumnosPorCurso) {
                 </tr>
               </thead>
               <tbody>
-                {c.alumnos.length > 0 ? (
-                  c.alumnos.map((a, idx) => (
+                {(c.alumnos?.length ?? 0) > 0 ? (
+                  c.alumnos?.map((a, idx) => (
                     <tr key={a.id || idx}>
                       <td>{idx + 1}</td>
                       <td>
@@ -84,7 +85,8 @@ export function renderAlumnosPorCurso(cursos: AlumnosPorCurso) {
 
 // 2. Alumnos por Deporte
 export function renderAlumnosPorDeporte(deportes: AlumnosPorDeporte) {
-  if (!deportes || deportes.length === 0) return <p>No hay deportes registrados.</p>;
+  if (!deportes || !Array.isArray(deportes) || deportes.length === 0)
+    return <p>No hay deportes registrados.</p>;
 
   return (
     <div>
@@ -108,7 +110,7 @@ export function renderAlumnosPorDeporte(deportes: AlumnosPorDeporte) {
             </span>
           </div>
 
-          {dep.grupos.map((grp, gi) => (
+          {dep.grupos?.map((grp, gi) => (
             <div key={gi} style={{ marginTop: '10px', marginLeft: '12px' }}>
               <div
                 style={{
@@ -137,8 +139,8 @@ export function renderAlumnosPorDeporte(deportes: AlumnosPorDeporte) {
                     </tr>
                   </thead>
                   <tbody>
-                    {grp.alumnos.length > 0 ? (
-                      grp.alumnos.map((a, ai) => (
+                    {(grp.alumnos?.length ?? 0) > 0 ? (
+                      grp.alumnos?.map((a, ai) => (
                         <tr key={ai}>
                           <td>
                             <strong>{a.legajo}</strong>
@@ -170,7 +172,7 @@ export function renderAlumnosPorDeporte(deportes: AlumnosPorDeporte) {
 
 // 3. Alumnos por Deporte y Nivel
 export function renderAlumnosPorDeporteNivel(data: AlumnosPorDeporteNivel) {
-  if (!data || data.length === 0) return <p>No hay datos disponibles.</p>;
+  if (!data || !Array.isArray(data) || data.length === 0) return <p>No hay datos disponibles.</p>;
 
   return (
     <div className="report-table-wrapper">
@@ -193,12 +195,12 @@ export function renderAlumnosPorDeporteNivel(data: AlumnosPorDeporteNivel) {
                 <span className="badge badge-blue">{item.nivel}</span>
               </td>
               <td>
-                <strong>{item.alumnos.length}</strong>
+                <strong>{item.alumnos?.length ?? 0}</strong>
               </td>
               <td>
-                {item.alumnos.length > 0 ? (
+                {(item.alumnos?.length ?? 0) > 0 ? (
                   <ul style={{ margin: 0, paddingLeft: '16px', fontSize: '0.85rem' }}>
-                    {item.alumnos.map((a, ai) => (
+                    {item.alumnos?.map((a, ai) => (
                       <li key={ai}>
                         {a.apellido}, {a.nombre} ({a.legajo}) - {a.curso}
                       </li>
@@ -218,7 +220,8 @@ export function renderAlumnosPorDeporteNivel(data: AlumnosPorDeporteNivel) {
 
 // 4. Alumnos por Deporte, Horario y Docente
 export function renderAlumnosPorDeporteDetalle(grupos: AlumnosPorDeporteDetalle) {
-  if (!grupos || grupos.length === 0) return <p>No hay grupos deportivos configurados.</p>;
+  if (!grupos || !Array.isArray(grupos) || grupos.length === 0)
+    return <p>No hay grupos deportivos configurados.</p>;
 
   return (
     <div className="report-table-wrapper">
@@ -246,10 +249,10 @@ export function renderAlumnosPorDeporteDetalle(grupos: AlumnosPorDeporteDetalle)
               </td>
               <td>{g.profesor ? `${g.profesor.apellido}, ${g.profesor.nombre}` : 'Sin asignar'}</td>
               <td>
-                {g.alumnos.length > 0 ? (
+                {(g.alumnos?.length ?? 0) > 0 ? (
                   <span>
-                    <strong>{g.alumnos.length} alumnos:</strong>{' '}
-                    {g.alumnos.map((a) => `${a.apellido}, ${a.nombre}`).join('; ')}
+                    <strong>{g.alumnos?.length ?? 0} alumnos:</strong>{' '}
+                    {g.alumnos?.map((a) => `${a.apellido}, ${a.nombre}`).join('; ')}
                   </span>
                 ) : (
                   <span style={{ color: 'var(--gray-500)' }}>0 inscriptos</span>
@@ -265,7 +268,8 @@ export function renderAlumnosPorDeporteDetalle(grupos: AlumnosPorDeporteDetalle)
 
 // 5. Alumnos por Recorrido
 export function renderAlumnosPorRecorrido(recorridos: AlumnosPorRecorrido) {
-  if (!recorridos || recorridos.length === 0) return <p>No hay recorridos configurados.</p>;
+  if (!recorridos || !Array.isArray(recorridos) || recorridos.length === 0)
+    return <p>No hay recorridos configurados.</p>;
 
   return (
     <div>
@@ -286,7 +290,7 @@ export function renderAlumnosPorRecorrido(recorridos: AlumnosPorRecorrido) {
               Recorrido: {r.recorrido} ({r.zona})
             </strong>
             <span className="badge badge-amber">
-              Horario: {r.horario} • {r.alumnos.length} Pasajeros
+              Horario: {r.horario} • {r.alumnos?.length ?? 0} Pasajeros
             </span>
           </div>
 
@@ -302,8 +306,8 @@ export function renderAlumnosPorRecorrido(recorridos: AlumnosPorRecorrido) {
                 </tr>
               </thead>
               <tbody>
-                {r.alumnos.length > 0 ? (
-                  r.alumnos.map((a, ai) => (
+                {(r.alumnos?.length ?? 0) > 0 ? (
+                  r.alumnos?.map((a, ai) => (
                     <tr key={ai}>
                       <td>
                         <strong>{a.legajo}</strong>
@@ -334,7 +338,8 @@ export function renderAlumnosPorRecorrido(recorridos: AlumnosPorRecorrido) {
 
 // 6. Alumnos por Materia
 export function renderAlumnosPorMateria(materias: AlumnosPorMateria) {
-  if (!materias || materias.length === 0) return <p>No hay materias asignadas.</p>;
+  if (!materias || !Array.isArray(materias) || materias.length === 0)
+    return <p>No hay materias asignadas.</p>;
 
   return (
     <div className="report-table-wrapper">
@@ -358,8 +363,8 @@ export function renderAlumnosPorMateria(materias: AlumnosPorMateria) {
               </td>
               <td>{m.profesor || 'Sin docente'}</td>
               <td>
-                <strong>{m.alumnos.length} alumnos:</strong>
-                {m.alumnos.length > 0 && (
+                <strong>{m.alumnos?.length ?? 0} alumnos:</strong>
+                {(m.alumnos?.length ?? 0) > 0 && (
                   <span
                     style={{
                       fontSize: '0.85rem',
@@ -368,7 +373,7 @@ export function renderAlumnosPorMateria(materias: AlumnosPorMateria) {
                       marginTop: '4px',
                     }}
                   >
-                    {m.alumnos.map((a) => `${a.apellido} (${a.legajo})`).join(', ')}
+                    {m.alumnos?.map((a) => `${a.apellido} (${a.legajo})`).join(', ')}
                   </span>
                 )}
               </td>
@@ -382,7 +387,8 @@ export function renderAlumnosPorMateria(materias: AlumnosPorMateria) {
 
 // 7. Docentes por Nivel
 export function renderDocentesPorNivel(niveles: DocentesPorNivel) {
-  if (!niveles || niveles.length === 0) return <p>No hay asignaciones registradas.</p>;
+  if (!niveles || !Array.isArray(niveles) || niveles.length === 0)
+    return <p>No hay asignaciones registradas.</p>;
 
   return (
     <div>
@@ -410,14 +416,14 @@ export function renderDocentesPorNivel(niveles: DocentesPorNivel) {
                 </tr>
               </thead>
               <tbody>
-                {n.docentes.length > 0 ? (
-                  n.docentes.map((d, di) => (
+                {(n.docentes?.length ?? 0) > 0 ? (
+                  n.docentes?.map((d, di) => (
                     <tr key={di}>
                       <td>
                         <strong>{d.profesor || 'Docente'}</strong>
                       </td>
-                      <td>{d.materias.join(', ') || '—'}</td>
-                      <td>{d.cursos.filter(Boolean).join(', ') || '—'}</td>
+                      <td>{d.materias?.join(', ') || '—'}</td>
+                      <td>{d.cursos?.filter(Boolean).join(', ') || '—'}</td>
                     </tr>
                   ))
                 ) : (
@@ -492,8 +498,8 @@ export function renderReporteAlumno(data: ReporteAlumno) {
               </tr>
             </thead>
             <tbody>
-              {materias.length > 0 ? (
-                materias.map((m, i) => (
+              {(materias?.length ?? 0) > 0 ? (
+                materias?.map((m, i) => (
                   <tr key={i}>
                     <td>
                       <strong>{m.materia}</strong>
@@ -530,8 +536,8 @@ export function renderReporteAlumno(data: ReporteAlumno) {
               </tr>
             </thead>
             <tbody>
-              {deportes.length > 0 ? (
-                deportes.map((d, i) => (
+              {(deportes?.length ?? 0) > 0 ? (
+                deportes?.map((d, i) => (
                   <tr key={i}>
                     <td>
                       <strong>{d.deporte?.nombre || 'Deporte'}</strong>
@@ -567,8 +573,8 @@ export function renderReporteAlumno(data: ReporteAlumno) {
             }}
           >
             <strong>Transporte Escolar:</strong>{' '}
-            {transporte.length > 0 ? (
-              transporte.map((t, i) => (
+            {(transporte?.length ?? 0) > 0 ? (
+              transporte?.map((t, i) => (
                 <span key={i} className="badge badge-amber">
                   {t.nombre} ({t.horario})
                 </span>
@@ -635,7 +641,7 @@ export function renderReporteDocente(data: ReporteDocente) {
             <strong>Teléfono:</strong> {docente.telefono || '—'}
           </div>
           <div>
-            <strong>Materias:</strong> {materiasACargo.join(', ') || '—'}
+            <strong>Materias:</strong> {materiasACargo?.join(', ') || '—'}
           </div>
         </div>
       </div>
@@ -654,8 +660,8 @@ export function renderReporteDocente(data: ReporteDocente) {
               </tr>
             </thead>
             <tbody>
-              {cursos.length > 0 ? (
-                cursos.map((c, i) => (
+              {(cursos?.length ?? 0) > 0 ? (
+                cursos?.map((c, i) => (
                   <tr key={i}>
                     <td>
                       <strong>{c.materia}</strong>
@@ -668,7 +674,7 @@ export function renderReporteDocente(data: ReporteDocente) {
                       {c.dia} {c.horario}
                     </td>
                     <td>
-                      <span className="badge badge-blue">{c.alumnos.length} alumnos</span>
+                      <span className="badge badge-blue">{c.alumnos?.length ?? 0} alumnos</span>
                     </td>
                   </tr>
                 ))
@@ -684,7 +690,7 @@ export function renderReporteDocente(data: ReporteDocente) {
         </div>
       </div>
 
-      {gruposDeporte.length > 0 && (
+      {(gruposDeporte?.length ?? 0) > 0 && (
         <div>
           <strong>Grupos Deportivos a Cargo</strong>
           <div className="report-table-wrapper">
@@ -697,14 +703,14 @@ export function renderReporteDocente(data: ReporteDocente) {
                 </tr>
               </thead>
               <tbody>
-                {gruposDeporte.map((g, i) => (
+                {gruposDeporte?.map((g, i) => (
                   <tr key={i}>
                     <td>
                       <strong>{g.deporte?.nombre || 'Deporte'}</strong>
                     </td>
-                    <td>{g.grupo.nivel}</td>
+                    <td>{g.grupo?.nivel}</td>
                     <td>
-                      {g.grupo.dia} ({g.grupo.horario})
+                      {g.grupo?.dia} ({g.grupo?.horario})
                     </td>
                   </tr>
                 ))}

@@ -12,6 +12,7 @@ import {
 import { useState, useEffect } from 'react';
 import { Printer, Download, Search } from 'lucide-react';
 import { Button } from './Button';
+import { ErrorBoundary } from './ErrorBoundary';
 import { api } from '../services/api';
 import type {
   Alumno,
@@ -32,71 +33,117 @@ interface ReportesViewerProps {
   docentes: Docente[];
 }
 
+interface ReportState {
+  tipo: string;
+  data: unknown;
+}
+
 export function ReportesViewer({ alumnos, docentes }: ReportesViewerProps) {
   const [search, setSearch] = useState('');
   const [tipo, setTipo] = useState<string>('alumnos-por-curso');
   const [idConsulta, setIdConsulta] = useState<string>('');
-  const [salida, setSalida] = useState<unknown>(null);
+  const [reportState, setReportState] = useState<ReportState | null>(null);
+  const [loading, setLoading] = useState<boolean>(false);
   const [estado, setEstado] = useState<string>('');
   const [fechaGeneracion, setFechaGeneracion] = useState<string>('');
+  const [reloadTrigger, setReloadTrigger] = useState(0);
 
-  async function cargar() {
-    setSalida(null);
-    setEstado('Generando reporte...');
-    setFechaGeneracion(new Date().toLocaleString('es-AR'));
-    try {
-      if (tipo === 'alumnos-por-curso') {
-        setSalida(await api.getAlumnosPorCurso());
-      } else if (tipo === 'alumnos-por-deporte') {
-        setSalida(await api.getAlumnosPorDeporte());
-      } else if (tipo === 'alumnos-por-deporte-nivel') {
-        setSalida(await api.getAlumnosPorDeporteNivel());
-      } else if (tipo === 'alumnos-por-deporte-detalle') {
-        setSalida(await api.getAlumnosPorDeporteDetalle());
-      } else if (tipo === 'alumnos-por-recorrido') {
-        setSalida(await api.getAlumnosPorRecorrido());
-      } else if (tipo === 'alumnos-por-materia') {
-        setSalida(await api.getAlumnosPorMateria());
-      } else if (tipo === 'docentes-por-nivel') {
-        setSalida(await api.getDocentesPorNivel());
-      } else if (tipo === 'alumno') {
-        const id = idConsulta ? Number(idConsulta) : alumnos[0]?.id;
-        if (!id) {
-          setEstado('Selecciona un alumno.');
-          return;
-        }
-        setSalida(await api.getReporteAlumno(id));
-      } else if (tipo === 'docente') {
-        const id = idConsulta ? Number(idConsulta) : docentes[0]?.id;
-        if (!id) {
-          setEstado('Selecciona un docente.');
-          return;
-        }
-        setSalida(await api.getReporteDocente(id));
-      }
-      setEstado('Reporte actualizado.');
-    } catch (error) {
-      setEstado(error instanceof Error ? error.message : 'Error al generar el reporte.');
-    }
+  function cargar() {
+    setReloadTrigger((prev) => prev + 1);
   }
 
   useEffect(() => {
-    // Reset ID default when switching to alumno or docente
-    if (tipo === 'alumno' && alumnos.length > 0 && !idConsulta) {
-      setIdConsulta(String(alumnos[0].id));
-    } else if (tipo === 'docente' && docentes.length > 0 && !idConsulta) {
-      setIdConsulta(String(docentes[0].id));
-    }
-    cargar();
-  }, [tipo]);
+    let active = true;
 
-  const filtered = Array.isArray(salida)
-    ? salida.filter((row) =>
-        JSON.stringify(row).toLocaleLowerCase().includes(search.toLocaleLowerCase()),
-      )
-    : salida && JSON.stringify(salida).toLocaleLowerCase().includes(search.toLocaleLowerCase())
-      ? salida
-      : null;
+    async function cargarReporte() {
+      setLoading(true);
+      setEstado('Generando reporte...');
+      setFechaGeneracion(new Date().toLocaleString('es-AR'));
+
+      const targetId =
+        idConsulta ||
+        (tipo === 'alumno'
+          ? alumnos[0]?.id
+            ? String(alumnos[0].id)
+            : ''
+          : tipo === 'docente'
+            ? docentes[0]?.id
+              ? String(docentes[0].id)
+              : ''
+            : '');
+
+      try {
+        let result: unknown = null;
+        if (tipo === 'alumnos-por-curso') {
+          result = await api.getAlumnosPorCurso();
+        } else if (tipo === 'alumnos-por-deporte') {
+          result = await api.getAlumnosPorDeporte();
+        } else if (tipo === 'alumnos-por-deporte-nivel') {
+          result = await api.getAlumnosPorDeporteNivel();
+        } else if (tipo === 'alumnos-por-deporte-detalle') {
+          result = await api.getAlumnosPorDeporteDetalle();
+        } else if (tipo === 'alumnos-por-recorrido') {
+          result = await api.getAlumnosPorRecorrido();
+        } else if (tipo === 'alumnos-por-materia') {
+          result = await api.getAlumnosPorMateria();
+        } else if (tipo === 'docentes-por-nivel') {
+          result = await api.getDocentesPorNivel();
+        } else if (tipo === 'alumno') {
+          const id = targetId ? Number(targetId) : undefined;
+          if (!id) {
+            if (active) {
+              setEstado('Selecciona un alumno.');
+              setLoading(false);
+            }
+            return;
+          }
+          result = await api.getReporteAlumno(id);
+        } else if (tipo === 'docente') {
+          const id = targetId ? Number(targetId) : undefined;
+          if (!id) {
+            if (active) {
+              setEstado('Selecciona un docente.');
+              setLoading(false);
+            }
+            return;
+          }
+          result = await api.getReporteDocente(id);
+        }
+
+        if (!active) return;
+        setReportState({ tipo, data: result });
+        setEstado('Reporte actualizado.');
+      } catch (error) {
+        if (!active) return;
+        setEstado(error instanceof Error ? error.message : 'Error al generar el reporte.');
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
+      }
+    }
+
+    cargarReporte();
+
+    return () => {
+      active = false;
+    };
+  }, [tipo, idConsulta, reloadTrigger, alumnos, docentes]);
+
+  const isDataMatching = reportState !== null && reportState.tipo === tipo;
+  const currentData = isDataMatching ? reportState.data : null;
+
+  const filtered =
+    !isDataMatching || currentData === null
+      ? null
+      : Array.isArray(currentData)
+        ? currentData.filter((row) =>
+            JSON.stringify(row).toLocaleLowerCase().includes(search.toLocaleLowerCase()),
+          )
+        : JSON.stringify(currentData).toLocaleLowerCase().includes(search.toLocaleLowerCase())
+          ? currentData
+          : null;
+
   function exportCsv() {
     const rows = [...document.querySelectorAll('#printable-report table tr')]
       .map((row) =>
@@ -118,6 +165,7 @@ export function ReportesViewer({ alumnos, docentes }: ReportesViewerProps) {
     anchor.click();
     URL.revokeObjectURL(url);
   }
+
   function handlePrint() {
     window.print();
   }
@@ -150,8 +198,15 @@ export function ReportesViewer({ alumnos, docentes }: ReportesViewerProps) {
           <select
             value={tipo}
             onChange={(e) => {
-              setTipo(e.target.value);
-              setIdConsulta('');
+              const newTipo = e.target.value;
+              setTipo(newTipo);
+              if (newTipo === 'alumno') {
+                setIdConsulta(alumnos[0] ? String(alumnos[0].id) : '');
+              } else if (newTipo === 'docente') {
+                setIdConsulta(docentes[0] ? String(docentes[0].id) : '');
+              } else {
+                setIdConsulta('');
+              }
               setSearch('');
             }}
           >
@@ -200,14 +255,19 @@ export function ReportesViewer({ alumnos, docentes }: ReportesViewerProps) {
             value={search}
             onChange={(event) => setSearch(event.target.value)}
           />
-          <Button type="button" variant="outline" onClick={exportCsv} disabled={!filtered}>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={exportCsv}
+            disabled={!filtered || loading || !isDataMatching}
+          >
             <Download size={16} /> Exportar CSV
           </Button>
-          <Button type="button" onClick={cargar}>
+          <Button type="button" onClick={cargar} disabled={loading}>
             <Search size={16} /> Actualizar Reporte
           </Button>
 
-          {filtered !== null && (
+          {filtered !== null && isDataMatching && !loading && (
             <Button type="button" variant="outline" onClick={handlePrint}>
               <Printer size={16} /> Guardar / Descargar PDF
             </Button>
@@ -217,55 +277,82 @@ export function ReportesViewer({ alumnos, docentes }: ReportesViewerProps) {
         </div>
       </div>
 
-      {filtered !== null && (
-        <div id="printable-report" className="report-container">
-          <div className="report-header-print">
-            <div>
-              <h3 className="report-institution-title">
-                CENTRO EDUCATIVO "EDUCAR PARA TRANSFORMAR"
-              </h3>
-              <p className="report-subtitle">
-                Sistema de Gestión Web Institucional • Resistencia, Chaco
-              </p>
-              <h4 style={{ margin: '8px 0 0 0', color: 'var(--blue-800)', fontSize: '1.1rem' }}>
-                {reportTitles[tipo] ?? 'Reporte Institucional'}
-              </h4>
-            </div>
-            <div className="report-meta">
-              <div>
-                <strong>Fecha de emisión:</strong> {fechaGeneracion}
-              </div>
-              <div>
-                <strong>Documento:</strong> Oficial Interno
-              </div>
-              <div className="no-print" style={{ marginTop: '8px' }}>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={handlePrint}
-                  style={{ fontSize: '0.78rem', padding: '4px 10px' }}
-                >
-                  <Download size={14} /> Imprimir / PDF
-                </Button>
-              </div>
-            </div>
+      <ErrorBoundary key={tipo} onReset={cargar}>
+        {loading || !isDataMatching ? (
+          <div
+            className="report-loading-container"
+            style={{
+              padding: '40px 20px',
+              textAlign: 'center',
+              background: 'var(--white, #fff)',
+              borderRadius: '8px',
+              border: '1px solid var(--gray-200, #e2e8f0)',
+              marginTop: '16px',
+            }}
+          >
+            <p
+              style={{
+                margin: 0,
+                color: 'var(--gray-600, #475569)',
+                fontSize: '1rem',
+                fontWeight: 500,
+              }}
+            >
+              Generando reporte...
+            </p>
           </div>
+        ) : filtered !== null ? (
+          <div id="printable-report" className="report-container">
+            <div className="report-header-print">
+              <div>
+                <h3 className="report-institution-title">
+                  CENTRO EDUCATIVO "EDUCAR PARA TRANSFORMAR"
+                </h3>
+                <p className="report-subtitle">
+                  Sistema de Gestión Web Institucional • Resistencia, Chaco
+                </p>
+                <h4 style={{ margin: '8px 0 0 0', color: 'var(--blue-800)', fontSize: '1.1rem' }}>
+                  {reportTitles[tipo] ?? 'Reporte Institucional'}
+                </h4>
+              </div>
+              <div className="report-meta">
+                <div>
+                  <strong>Fecha de emisión:</strong> {fechaGeneracion}
+                </div>
+                <div>
+                  <strong>Documento:</strong> Oficial Interno
+                </div>
+                <div className="no-print" style={{ marginTop: '8px' }}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handlePrint}
+                    style={{ fontSize: '0.78rem', padding: '4px 10px' }}
+                  >
+                    <Download size={14} /> Imprimir / PDF
+                  </Button>
+                </div>
+              </div>
+            </div>
 
-          {/* RENDER REPORT TABLES BY TYPE */}
-          {tipo === 'alumnos-por-curso' && renderAlumnosPorCurso(filtered as AlumnosPorCurso)}
-          {tipo === 'alumnos-por-deporte' && renderAlumnosPorDeporte(filtered as AlumnosPorDeporte)}
-          {tipo === 'alumnos-por-deporte-nivel' &&
-            renderAlumnosPorDeporteNivel(filtered as AlumnosPorDeporteNivel)}
-          {tipo === 'alumnos-por-deporte-detalle' &&
-            renderAlumnosPorDeporteDetalle(filtered as AlumnosPorDeporteDetalle)}
-          {tipo === 'alumnos-por-recorrido' &&
-            renderAlumnosPorRecorrido(filtered as AlumnosPorRecorrido)}
-          {tipo === 'alumnos-por-materia' && renderAlumnosPorMateria(filtered as AlumnosPorMateria)}
-          {tipo === 'docentes-por-nivel' && renderDocentesPorNivel(filtered as DocentesPorNivel)}
-          {tipo === 'alumno' && renderReporteAlumno(filtered as ReporteAlumno)}
-          {tipo === 'docente' && renderReporteDocente(filtered as ReporteDocente)}
-        </div>
-      )}
+            {/* RENDER REPORT TABLES BY TYPE */}
+            {tipo === 'alumnos-por-curso' && renderAlumnosPorCurso(filtered as AlumnosPorCurso)}
+            {tipo === 'alumnos-por-deporte' &&
+              renderAlumnosPorDeporte(filtered as AlumnosPorDeporte)}
+            {tipo === 'alumnos-por-deporte-nivel' &&
+              renderAlumnosPorDeporteNivel(filtered as AlumnosPorDeporteNivel)}
+            {tipo === 'alumnos-por-deporte-detalle' &&
+              renderAlumnosPorDeporteDetalle(filtered as AlumnosPorDeporteDetalle)}
+            {tipo === 'alumnos-por-recorrido' &&
+              renderAlumnosPorRecorrido(filtered as AlumnosPorRecorrido)}
+            {tipo === 'alumnos-por-materia' &&
+              renderAlumnosPorMateria(filtered as AlumnosPorMateria)}
+            {tipo === 'docentes-por-nivel' && renderDocentesPorNivel(filtered as DocentesPorNivel)}
+            {tipo === 'alumno' && renderReporteAlumno(filtered as ReporteAlumno)}
+            {tipo === 'docente' && renderReporteDocente(filtered as ReporteDocente)}
+          </div>
+        ) : null}
+      </ErrorBoundary>
     </section>
   );
 }
