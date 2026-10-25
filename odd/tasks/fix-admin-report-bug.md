@@ -13,7 +13,7 @@ Solucionar el bug de pantalla en blanco al conmutar tipos de reportes en el pane
 ## Tasks
 - [x] T01: Corregir desincronización de estado, cancelar peticiones obsoletas y agregar ErrorBoundary en `ReportesViewer.tsx` y `renderers.tsx` [commit 27505e0]
 - [x] T02: Verificar build (`npm run build`) y tests funcionales existentes (`npm test`) [commit 27505e0]
-- [x] T03: Configurar y ejecutar la suite de pruebas de Frontend (E2E) con TestSprite
+- [x] T03: Configurar y ejecutar la suite de pruebas de Frontend (E2E) con TestSprite [commit 138e20b]
 
 ## Evidence & Verification
 - T01: Implementado `ErrorBoundary.tsx`, refactorizado `ReportesViewer.tsx` con `reportState: { tipo, data }`, `loading` flag, `active` cancellation en `useEffect`, y defensas con optional chaining en `renderers.tsx`.
