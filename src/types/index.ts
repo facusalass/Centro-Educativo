@@ -138,7 +138,20 @@ export type ReporteDocente = {
     }>;
   }>;
   materiasACargo: string[];
-  gruposDeporte: Array<{ grupo: GrupoDeporte; deporte: Deporte | null }>;
+  gruposDeporte: Array<{
+    grupo: GrupoDeporte;
+    deporte: Deporte | null;
+    alumnos?: Array<{
+      id?: number;
+      legajo: string;
+      apellido: string;
+      nombre: string;
+      dni?: string;
+      curso: string;
+      division?: string;
+      nivel: string;
+    }>;
+  }>;
 };
 
 export type AlumnoResumen = {
@@ -147,6 +160,7 @@ export type AlumnoResumen = {
   nombre: string;
   curso?: string;
   nivel?: string;
+  domicilio?: string;
 };
 
 export type AlumnosPorDeporte = Array<{

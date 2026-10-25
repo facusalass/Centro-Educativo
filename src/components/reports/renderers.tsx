@@ -298,6 +298,7 @@ export function renderAlumnosPorRecorrido(recorridos: AlumnosPorRecorrido) {
                   <th>Alumno</th>
                   <th>Curso / División</th>
                   <th>Nivel</th>
+                  <th>Domicilio</th>
                 </tr>
               </thead>
               <tbody>
@@ -312,11 +313,12 @@ export function renderAlumnosPorRecorrido(recorridos: AlumnosPorRecorrido) {
                       </td>
                       <td>{a.curso || '—'}</td>
                       <td>{a.nivel || '—'}</td>
+                      <td>{a.domicilio || '—'}</td>
                     </tr>
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={4} style={{ textAlign: 'center', color: 'var(--gray-500)' }}>
+                    <td colSpan={5} style={{ textAlign: 'center', color: 'var(--gray-500)' }}>
                       No hay alumnos inscriptos en esta ruta.
                     </td>
                   </tr>

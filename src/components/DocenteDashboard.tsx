@@ -269,46 +269,89 @@ export function DocenteDashboard({ usuario }: { usuario: UsuarioAcceso }) {
 
       {/* View 3: Grupos Deportivos */}
       {vista === 'deportes' && (
-        <div
-          style={{
-            background: 'var(--white)',
-            border: '1px solid var(--gray-200)',
-            borderRadius: '8px',
-            padding: '18px',
-            boxShadow: 'var(--shadow-sm)',
-          }}
-        >
+        <div>
           <h3 style={{ color: 'var(--blue-900)', marginBottom: '14px' }}>
             Comisiones y Grupos Deportivos a Cargo
           </h3>
-          <div className="report-table-wrapper" style={{ margin: 0 }}>
-            <table className="report-table">
-              <thead>
-                <tr>
-                  <th>Deporte</th>
-                  <th>Nivel Educativo</th>
-                  <th>Día Asignado</th>
-                  <th>Franja Horaria</th>
-                </tr>
-              </thead>
-              <tbody>
-                {reporte.gruposDeporte.map((g, i) => (
-                  <tr key={i}>
-                    <td>
-                      <strong>{g.deporte?.nombre ?? 'Deporte'}</strong>
-                    </td>
-                    <td>
-                      <span className="badge badge-blue">{g.grupo.nivel}</span>
-                    </td>
-                    <td>{g.grupo.dia}</td>
-                    <td>
-                      <span className="badge badge-green">{g.grupo.horario}</span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          {reporte.gruposDeporte.map((g, i) => {
+            const alumnosGrupo = g.alumnos ?? [];
+            return (
+              <div
+                key={i}
+                style={{
+                  background: 'var(--white)',
+                  border: '1px solid var(--gray-200)',
+                  borderRadius: '8px',
+                  padding: '18px',
+                  marginBottom: '20px',
+                  boxShadow: 'var(--shadow-sm)',
+                }}
+              >
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    marginBottom: '12px',
+                    flexWrap: 'wrap',
+                    gap: '8px',
+                  }}
+                >
+                  <div>
+                    <h4
+                      style={{ margin: '0 0 4px 0', color: 'var(--blue-900)', fontSize: '1.05rem' }}
+                    >
+                      {g.deporte?.nombre ?? 'Deporte'} — Nivel {g.grupo.nivel}
+                    </h4>
+                    <span style={{ fontSize: '0.85rem', color: 'var(--gray-600)' }}>
+                      Día y horario: {g.grupo.dia} ({g.grupo.horario})
+                    </span>
+                  </div>
+                  <span className="badge badge-blue">{alumnosGrupo.length} Inscriptos</span>
+                </div>
+
+                <div className="report-table-wrapper" style={{ margin: 0 }}>
+                  <table className="report-table">
+                    <thead>
+                      <tr>
+                        <th>#</th>
+                        <th>Legajo</th>
+                        <th>Apellido y Nombre</th>
+                        <th>DNI</th>
+                        <th>Curso / Nivel</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {alumnosGrupo.length > 0 ? (
+                        alumnosGrupo.map((a, ai) => (
+                          <tr key={a.id ?? ai}>
+                            <td>{ai + 1}</td>
+                            <td>
+                              <strong>{a.legajo}</strong>
+                            </td>
+                            <td>
+                              {a.apellido}, {a.nombre}
+                            </td>
+                            <td>{a.dni || '—'}</td>
+                            <td>
+                              {a.curso}
+                              {a.division ? ` "${a.division}"` : ''} ({a.nivel})
+                            </td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan={5} style={{ textAlign: 'center', color: 'var(--gray-500)' }}>
+                            Sin alumnos inscriptos en este grupo deportivo.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

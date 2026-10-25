@@ -419,6 +419,8 @@ test('notificaciones respetan la propiedad al marcarse como leídas', async () =
   assert.equal((await api(`/notificaciones/${notices[0].id}/leida`, parent, 'PUT')).status, 200);
 });
 test('las nueve variantes de reportes responden sin datos de contraseñas', async () => {
+  await db.update('alumnos', childId, { domicilio: 'Av. Alberdi 450' });
+  await db.update('alumnos', otherChild, { domicilio: 'Av. Sarmiento 820' });
   for (const path of [
     'alumnos-por-curso',
     'alumnos-por-deporte',
@@ -436,6 +438,24 @@ test('las nueve variantes de reportes responden sin datos de contraseñas', asyn
     assert.ok(performance.now() - start < 1500, path);
     assert.ok(!JSON.stringify(report.data).includes('password_hash'));
   }
+  const porRecorrido = await api('/reportes/alumnos-por-recorrido', admin);
+  const pasajerosConDomicilio = porRecorrido.data.flatMap((r: any) => r.alumnos);
+  assert.ok(pasajerosConDomicilio.length > 0);
+  assert.ok(
+    pasajerosConDomicilio.some(
+      (a: any) => a.domicilio === 'Av. Alberdi 450' || a.domicilio === 'Av. Sarmiento 820',
+    ),
+  );
+  const reporteDocente = await api('/reportes/docente/1', teacher);
+  assert.equal(reporteDocente.status, 200);
+  assert.ok(Array.isArray(reporteDocente.data.gruposDeporte));
+  assert.ok(reporteDocente.data.gruposDeporte.length > 0);
+  assert.ok(reporteDocente.data.gruposDeporte.every((g: any) => Array.isArray(g.alumnos)));
+  assert.ok(
+    reporteDocente.data.gruposDeporte.some((g: any) =>
+      g.alumnos.some((a: any) => a.id === childId && a.apellido === 'Uno'),
+    ),
+  );
 });
 test('Decorator compone el arancel base y los servicios realmente activos', async () => {
   for (const [tipo, monto] of [

@@ -124,7 +124,11 @@ export function registerReports(app) {
 
       const gruposDeporte = data.grupos
         .filter((grupo) => grupo.profesor_id === docente.id)
-        .map((grupo) => ({ grupo, deporte: data.deportesById.get(grupo.deporte_id) ?? null }));
+        .map((grupo) => ({
+          grupo,
+          deporte: data.deportesById.get(grupo.deporte_id) ?? null,
+          alumnos: alumnosDeGrupo(data, grupo.id),
+        }));
 
       res.json({ docente, cursos, materiasACargo, gruposDeporte });
     } catch (error) {
@@ -139,10 +143,13 @@ export function registerReports(app) {
         const alumno = data.alumnosById.get(i.alumno_id);
         return alumno
           ? {
+              id: alumno.id,
               legajo: alumno.legajo,
               apellido: alumno.apellido,
               nombre: alumno.nombre,
+              dni: alumno.dni,
               curso: alumno.curso,
+              division: alumno.division,
               nivel: alumno.nivel,
             }
           : null;
@@ -249,6 +256,7 @@ export function registerReports(app) {
                     nombre: alumno.nombre,
                     curso: alumno.curso,
                     nivel: alumno.nivel,
+                    domicilio: alumno.domicilio,
                   }
                 : null;
             })
