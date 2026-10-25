@@ -10,3 +10,5 @@ database/*.sqlite*
 outputs/
 work/
 figma-component.js
+testsprite_tests/tmp/
+testsprite_tests/tmp/config.json

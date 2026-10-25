@@ -11,10 +11,11 @@ Solucionar el bug de pantalla en blanco al conmutar tipos de reportes en el pane
 - Configurar y ejecutar pruebas de Frontend con TestSprite.
 
 ## Tasks
-- [x] T01: Corregir desincronización de estado, cancelar peticiones obsoletas y agregar ErrorBoundary en `ReportesViewer.tsx` y `renderers.tsx`
-- [x] T02: Verificar build (`npm run build`) y tests funcionales existentes (`npm test`)
-- [ ] T03: Configurar y ejecutar la suite de pruebas de Frontend (E2E) con TestSprite
+- [x] T01: Corregir desincronización de estado, cancelar peticiones obsoletas y agregar ErrorBoundary en `ReportesViewer.tsx` y `renderers.tsx` [commit 27505e0]
+- [x] T02: Verificar build (`npm run build`) y tests funcionales existentes (`npm test`) [commit 27505e0]
+- [x] T03: Configurar y ejecutar la suite de pruebas de Frontend (E2E) con TestSprite
 
 ## Evidence & Verification
 - T01: Implementado `ErrorBoundary.tsx`, refactorizado `ReportesViewer.tsx` con `reportState: { tipo, data }`, `loading` flag, `active` cancellation en `useEffect`, y defensas con optional chaining en `renderers.tsx`.
 - T02: `npm run build` completado exitosamente en 2.08s con 0 errores TypeScript/Vite; `npm test` exitoso con 21/21 pruebas pasadas en 5.05s.
+- T03: TestSprite Frontend suite ejecutada con 15 casos de prueba (12 pasados, 80% éxito). Verificado específicamente TC006: conmutación entre tipos de reportes sin pantallas blancas ni caídas de interfaz. Reporte generado en `testsprite_tests/testsprite-mcp-test-report.md`.

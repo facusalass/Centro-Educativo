@@ -1,0 +1,730 @@
+[
+  {
+    "id": "TC001",
+    "title": "Log in to the administrative workspace",
+    "description": "A family user can sign in with institutional credentials and reach the authenticated administrative workspace.",
+    "category": "User Authentication",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the authenticated administrative workspace is displayed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify access to administrative content is available"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC002",
+    "title": "Explore the landing page and submit an enrollment inquiry",
+    "description": "A visitor can review the institution overview and submit an enrollment inquiry from the public landing page.",
+    "category": "Public Landing and Contact",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /"
+      },
+      {
+        "type": "action",
+        "description": "Click the navigation item for the institution overview section"
+      },
+      {
+        "type": "action",
+        "description": "Click the navigation item for the education levels section"
+      },
+      {
+        "type": "action",
+        "description": "Click the navigation item for the enrollment section"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the parent or guardian name field with Ana Pérez"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the contact email field with ana.perez@example.com"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the inquiry message field with I would like information about enrollment for next term."
+      },
+      {
+        "type": "action",
+        "description": "Submit the inquiry form"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify a success confirmation is visible"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the enrollment inquiry form is no longer in its initial state"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC003",
+    "title": "Load a report and export it as CSV",
+    "description": "This verifies that an authenticated staff user can open a report, see it load, and export the displayed results as CSV.",
+    "category": "Administrative Reports Viewer",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the institutional email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Open the administrative reports viewer"
+      },
+      {
+        "type": "action",
+        "description": "Select a report type"
+      },
+      {
+        "type": "action",
+        "description": "Wait for the report to finish loading"
+      },
+      {
+        "type": "action",
+        "description": "Export the report as CSV"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the report is displayed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify a CSV export confirmation or download action is available"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC004",
+    "title": "Open the admin workspace and browse catalog tabs",
+    "description": "An authenticated staff user can switch between catalog tabs and view the corresponding records in the administrative workspace.",
+    "category": "Administrative Entity Management",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Click the tab for students"
+      },
+      {
+        "type": "action",
+        "description": "Click the tab for teachers"
+      },
+      {
+        "type": "action",
+        "description": "Click the tab for courses"
+      },
+      {
+        "type": "action",
+        "description": "Click the tab for subjects"
+      },
+      {
+        "type": "action",
+        "description": "Click the tab for sports"
+      },
+      {
+        "type": "action",
+        "description": "Click the tab for transport"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the corresponding catalog records are displayed for the active tab"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify switching tabs updates the displayed dataset"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC005",
+    "title": "Use the administrative workspace after signing in",
+    "description": "This verifies that a family user can sign in and land in the authenticated administrative workspace with access to reports and catalogs.",
+    "category": "Administrative Reports Viewer",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the institutional email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the authenticated administrative workspace is displayed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify report and catalog access is available"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC006",
+    "title": "Switch between report types without leaving the viewer",
+    "description": "This verifies that an authenticated staff user can load one report and then switch to another report type while staying in the same viewer.",
+    "category": "Administrative Reports Viewer",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the institutional email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Open the administrative reports viewer"
+      },
+      {
+        "type": "action",
+        "description": "Select a report type"
+      },
+      {
+        "type": "action",
+        "description": "Wait for the report to finish loading"
+      },
+      {
+        "type": "action",
+        "description": "Select another report type"
+      },
+      {
+        "type": "action",
+        "description": "Wait for the new report to finish loading"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the active report updates to the newly selected report"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the viewer remains open"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC007",
+    "title": "Search and filter administrative records",
+    "description": "An authenticated staff user can refine catalog results using search and filter controls and see the displayed records update accordingly.",
+    "category": "Administrative Entity Management",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Click the tab for students"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the search field with a known record value"
+      },
+      {
+        "type": "action",
+        "description": "Select a filter option that narrows the results"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the record list is filtered"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify only matching records are displayed"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC008",
+    "title": "Register a new family account",
+    "description": "A prospective family can open the registration form, submit the required details, and receive successful registration feedback.",
+    "category": "User Authentication",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Open the family registration form"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the family name field with Familia Torres"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the email field with familia.torres@example.com"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with a valid password"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the confirmation password field with the same valid password"
+      },
+      {
+        "type": "action",
+        "description": "Submit the registration form"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify a successful registration confirmation is visible"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC009",
+    "title": "Filter a report by search query",
+    "description": "This verifies that an authenticated staff user can narrow report results using the report filter input.",
+    "category": "Administrative Reports Viewer",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the institutional email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Open the administrative reports viewer"
+      },
+      {
+        "type": "action",
+        "description": "Select a report type"
+      },
+      {
+        "type": "action",
+        "description": "Wait for the report to finish loading"
+      },
+      {
+        "type": "action",
+        "description": "Fill a search query into the report filter field"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the report results are filtered"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the filtered results are displayed"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC010",
+    "title": "Review contact and enrollment information before submitting an inquiry",
+    "description": "A visitor can open the contact or enrollment area, review the available information, and complete an inquiry submission.",
+    "category": "Public Landing and Contact",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /"
+      },
+      {
+        "type": "action",
+        "description": "Click the navigation item for the contact section"
+      },
+      {
+        "type": "action",
+        "description": "Click the navigation item for the enrollment section"
+      },
+      {
+        "type": "action",
+        "description": "Review the contact and enrollment information presented in the section"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the parent or guardian name field with Laura Gómez"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the contact email field with laura.gomez@example.com"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the inquiry message field with Please send details about admissions and requirements."
+      },
+      {
+        "type": "action",
+        "description": "Submit the inquiry form"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify a success confirmation is visible"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC011",
+    "title": "Open a personalized student or teacher report",
+    "description": "This verifies that an authenticated staff user can select a specific student or teacher and load the corresponding personalized report data.",
+    "category": "Administrative Reports Viewer",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the institutional email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Open the administrative reports viewer"
+      },
+      {
+        "type": "action",
+        "description": "Select a report type that requires a specific record"
+      },
+      {
+        "type": "action",
+        "description": "Choose a student or teacher record"
+      },
+      {
+        "type": "action",
+        "description": "Wait for the personalized report to load"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify personalized report data is displayed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the selected record is reflected in the report"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC012",
+    "title": "Refresh administrative catalog data",
+    "description": "An authenticated staff user can refresh a catalog view and keep the administrative dataset available after the update action.",
+    "category": "Administrative Entity Management",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Click the tab for teachers"
+      },
+      {
+        "type": "action",
+        "description": "Click the refresh data control"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the catalog records are displayed after refreshing"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the active tab remains visible after the refresh"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC013",
+    "title": "Refresh a loaded report",
+    "description": "This verifies that an authenticated staff user can refresh a loaded report and keep viewing the same report context.",
+    "category": "Administrative Reports Viewer",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the institutional email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Open the administrative reports viewer"
+      },
+      {
+        "type": "action",
+        "description": "Select a report type"
+      },
+      {
+        "type": "action",
+        "description": "Wait for the report to finish loading"
+      },
+      {
+        "type": "action",
+        "description": "Refresh the report"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the report reloads successfully"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the same report remains visible after refresh"
+      }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC014",
+    "title": "Print or preview a report",
+    "description": "This verifies that an authenticated staff user can open the print or PDF preview for a loaded report.",
+    "category": "Administrative Reports Viewer",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the institutional email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Open the administrative reports viewer"
+      },
+      {
+        "type": "action",
+        "description": "Select a report type"
+      },
+      {
+        "type": "action",
+        "description": "Wait for the report to finish loading"
+      },
+      {
+        "type": "action",
+        "description": "Open the print or PDF preview"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify a print or PDF preview is displayed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the report content is included in the preview"
+      }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC015",
+    "title": "See the report update after changing the selected record",
+    "description": "This verifies that an authenticated staff user can change the chosen student or teacher and see the report content update accordingly.",
+    "category": "Administrative Reports Viewer",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the institutional email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Open the administrative reports viewer"
+      },
+      {
+        "type": "action",
+        "description": "Select a report type that requires a specific record"
+      },
+      {
+        "type": "action",
+        "description": "Choose one student or teacher record"
+      },
+      {
+        "type": "action",
+        "description": "Wait for the personalized report to load"
+      },
+      {
+        "type": "action",
+        "description": "Choose a different student or teacher record"
+      },
+      {
+        "type": "action",
+        "description": "Wait for the report to update"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the report content changes to the newly selected record"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify personalized data remains visible"
+      }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC016",
+    "title": "Show invalid login feedback",
+    "description": "A user entering incorrect credentials sees validation or credential error feedback instead of accessing the workspace.",
+    "category": "User Authentication",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the email field with invalid@example.com"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with an incorrect password"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify a login error message is visible"
+      }
+    ],
+    "priority": "Low"
+  }
+]
