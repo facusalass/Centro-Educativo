@@ -550,6 +550,26 @@ test('la carga administrativa conserva los legajos vinculados y los endpoints de
   assert.equal((await api('/alumnos/1', admin)).status, 200);
   assert.equal((await api('/alumnos/1', otherParent)).status, 403);
 });
+test('alumno autenticado consulta su propio legajo integral en modo lectura y no accede a otros alumnos', async () => {
+  const studentLogin = await api('/auth/login', '', 'POST', {
+    email: 'alumno@educar.com',
+    password: 'alumno123',
+  });
+  assert.equal(studentLogin.status, 200);
+  assert.equal(studentLogin.data.usuario.rol, 'alumno');
+  assert.equal(studentLogin.data.usuario.referencia_id, 1);
+
+  const ownProfile = await api('/reportes/alumno/1', studentLogin.cookie);
+  assert.equal(ownProfile.status, 200);
+  assert.equal(ownProfile.data.alumno.id, 1);
+  assert.ok(ownProfile.data.alumno.legajo);
+  assert.ok(Array.isArray(ownProfile.data.materias));
+  assert.ok(Array.isArray(ownProfile.data.deportes));
+  assert.ok(Array.isArray(ownProfile.data.transporte));
+  assert.equal(typeof ownProfile.data.comedor, 'boolean');
+
+  assert.equal((await api(`/reportes/alumno/${childId}`, studentLogin.cookie)).status, 403);
+});
 test('asistencias por lote: permisos, atomicidad, fechas y actualización sin duplicados', async () => {
   const date = '2027-05-12';
   const mixed = await api('/asistencias', teacher, 'POST', {
