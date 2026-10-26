@@ -2498,6 +2498,13 @@ textarea:focus {
   display: flex;
   gap: 8px;
 }
+.report-preview-overlay #printable-report {
+  max-width: 1100px;
+  margin: 0 auto;
+}
+.report-preview-overlay #printable-report .no-print {
+  display: none;
+}
 
 @media print {
   .report-preview-overlay {
