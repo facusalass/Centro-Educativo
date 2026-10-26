@@ -49,7 +49,10 @@ app.use(express.json({ limit: '256kb' }));
 const staticDir = resolve('dist');
 if (existsSync(resolve(staticDir, 'index.html'))) {
   app.use(express.static(staticDir));
-  app.get(/^(?!\/api(?:\/|$)).*/, (_req, res) => res.sendFile(resolve(staticDir, 'index.html')));
+  // Serve the shell relative to `root`: an absolute path that contains a dot
+  // segment (a worktree under `.gemini/`, for instance) is treated by `send`
+  // as a dotfile and rejected, which turned every deep link into a 404.
+  app.get(/^(?!\/api(?:\/|$)).*/, (_req, res) => res.sendFile('index.html', { root: staticDir }));
 }
 
 app.use(async (_req, _res, next) => {
