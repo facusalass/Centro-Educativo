@@ -15,7 +15,9 @@ import { LoginPage } from './LoginPage';
 function AlumnoProfileView({ user }: { user: UsuarioAcceso }) {
   const [reporte, setReporte] = useState<ReporteAlumno | null>(null);
   const [status, setStatus] = useState(
-    user.referencia_id ? 'Cargando ficha académica…' : 'Tu cuenta aún no tiene un legajo de alumno vinculado.',
+    user.referencia_id
+      ? 'Cargando ficha académica…'
+      : 'Tu cuenta aún no tiene un legajo de alumno vinculado.',
   );
 
   useEffect(() => {
@@ -135,7 +137,9 @@ function AlumnoProfileView({ user }: { user: UsuarioAcceso }) {
       </section>
 
       <section className="panel-card">
-        <h3 style={{ marginTop: 0, color: 'var(--blue-900)' }}>Actividades Deportivas Inscriptas</h3>
+        <h3 style={{ marginTop: 0, color: 'var(--blue-900)' }}>
+          Actividades Deportivas Inscriptas
+        </h3>
         <div className="report-table-wrapper" style={{ margin: 0 }}>
           <table className="report-table">
             <thead>
