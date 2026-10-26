@@ -5,6 +5,7 @@ interface ErrorBoundaryProps {
   children: ReactNode;
   fallback?: ReactNode | ((error: Error, reset: () => void) => ReactNode);
   onReset?: () => void;
+  onError?: (error: Error) => void;
 }
 
 interface ErrorBoundaryState {
@@ -24,6 +25,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error('ErrorBoundary caught an error:', error, errorInfo);
+    this.props.onError?.(error);
   }
 
   reset = () => {
@@ -55,7 +57,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
             Ocurrió un error al cargar el contenido
           </h3>
           <p style={{ margin: '0 0 16px 0', fontSize: '0.9rem', color: '#7f1d1d' }}>
-            {this.state.error?.message || 'Error inesperado durante la visualización.'}
+            No se pudo mostrar este contenido. Volvé a intentarlo.
           </p>
           <Button type="button" variant="outline" onClick={this.reset}>
             Reintentar

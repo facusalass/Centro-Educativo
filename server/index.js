@@ -45,6 +45,10 @@ app.use(
   helmet({ contentSecurityPolicy: false, crossOriginResourcePolicy: { policy: 'cross-origin' } }),
 );
 app.use(express.json({ limit: '256kb' }));
+app.use('/api', (_req, res, next) => {
+  res.set('Cache-Control', 'no-store');
+  next();
+});
 
 const staticDir = resolve('dist');
 if (existsSync(resolve(staticDir, 'index.html'))) {

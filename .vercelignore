@@ -2,6 +2,9 @@ node_modules
 outputs
 database
 tests
+testsprite_tests
+odd
+docs
 .github
 .git
 .env

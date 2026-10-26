@@ -1,25 +1,27 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Clock, GraduationCap, Users } from 'lucide-react';
 import { Button } from './Button';
-import { api } from '../services/api';
+import { useReport } from '../hooks/useReport';
 import type { ReporteDocente, UsuarioAcceso } from '../types';
 export function DocenteDashboard({ usuario }: { usuario: UsuarioAcceso }) {
-  const [reporte, setReporte] = useState<ReporteDocente | null>(null);
-  const [status, setStatus] = useState('Cargando...');
   const [vista, setVista] = useState<'horario' | 'cursos' | 'deportes'>('horario');
-
-  useEffect(() => {
-    api
-      .getReporteDocente(usuario.referencia_id ?? 0)
-      .then((data) => {
-        setReporte(data);
-        setStatus('');
-      })
-      .catch((error) => setStatus(error instanceof Error ? error.message : 'No se pudo cargar.'));
-  }, [usuario]);
-
-  if (status) return <p className="form-status">{status}</p>;
-  if (!reporte) return null;
+  const { state, reload } = useReport('docente', String(usuario.referencia_id ?? ''));
+  if (state.status !== 'success')
+    return (
+      <section className="panel-card">
+        <p role={state.status === 'error' ? 'alert' : 'status'}>
+          {state.status === 'loading' ? 'Cargando…' : state.message}
+        </p>
+        {state.status === 'error' && <Button onClick={reload}>Reintentar</Button>}
+      </section>
+    );
+  const reporte = state.data as ReporteDocente;
+  const dayPrefix = (day: string) =>
+    day
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .slice(0, 3);
 
   const totalAlumnos = reporte.cursos.reduce((sum, c) => sum + c.alumnos.length, 0);
   const diasSemana = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'];
@@ -87,12 +89,10 @@ export function DocenteDashboard({ usuario }: { usuario: UsuarioAcceso }) {
             }}
           >
             {diasSemana.map((dia) => {
-              const pref = dia.slice(0, 3).toLowerCase();
-              const clasesDelDia = reporte.cursos.filter((c) =>
-                (c.dia || '').toLowerCase().includes(pref),
-              );
-              const deportesDelDia = reporte.gruposDeporte.filter((g) =>
-                (g.grupo.dia || '').toLowerCase().includes(pref),
+              const pref = dayPrefix(dia);
+              const clasesDelDia = reporte.cursos.filter((c) => dayPrefix(c.dia || '') === pref);
+              const deportesDelDia = reporte.gruposDeporte.filter(
+                (g) => dayPrefix(g.grupo.dia || '') === pref,
               );
 
               return (

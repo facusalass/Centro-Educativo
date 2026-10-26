@@ -4,7 +4,9 @@ import { assert, idOf } from './errors.js';
 import { validatePassword } from './security.js';
 import { overlaps, validateSchedule } from './enrollment.js';
 import { entities } from './entity-definitions.js';
+import { objectBody } from './validation.js';
 export async function validateEntity(key: string, incoming: any, id?: number) {
+  incoming = objectBody(incoming);
   const def = entities[key];
   const previous = id ? await db.get(`SELECT * FROM ${def.table} WHERE id = ?`, [id]) : {};
   assert(previous, 404, 'Registro no encontrado.');

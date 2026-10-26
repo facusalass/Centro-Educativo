@@ -5,6 +5,7 @@ import { rateLimit } from 'express-rate-limit';
 import { randomBytes } from 'node:crypto';
 import { db } from '../database.js';
 import { assert, HttpError } from './errors.js';
+import { objectBody } from './validation.js';
 
 export type User = {
   id: number;
@@ -130,19 +131,23 @@ export function installSecurity(app: Express) {
         ?.slice(cookieName.length + 1);
       const token = bearer || cookie;
       if (token) {
+        let payload: jwt.JwtPayload | undefined;
         try {
-          const payload = jwt.verify(token, secret, {
+          payload = jwt.verify(token, secret, {
             algorithms: ['HS256'],
             issuer: 'educar',
             audience: 'portal',
           }) as jwt.JwtPayload;
+        } catch {
+          /* Expired and invalid credentials never become identities. */
+        }
+        // A database outage is a server failure, not an invalid session.
+        if (payload) {
           const user = await db.get('SELECT * FROM usuarios_acceso WHERE id = ?', [
             Number(payload.sub),
           ]);
           if (user?.estado === 'activo' && (user.session_version ?? 0) === payload.ver)
             req.user = user;
-        } catch {
-          /* Expired and invalid credentials never become identities. */
         }
       }
       if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
@@ -230,10 +235,12 @@ export function installSecurity(app: Express) {
     }
   });
   const login = async (req: Request, res: Response) => {
-    const email = String(req.body.email ?? '')
+    const input = objectBody(req.body);
+    const email = String(input.email ?? '')
       .trim()
       .toLowerCase();
-    const password = String(req.body.password ?? '');
+    assert(typeof input.password === 'string', 400, 'Ingresá email y contraseña.');
+    const password = input.password;
     assert(email && password, 400, 'Ingresá email y contraseña.');
     const user = await db.get('SELECT * FROM usuarios_acceso WHERE LOWER(email) = ?', [email]);
     const dummy = '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6Ttx8KPip8qzSa6Hg0uAzR4QGaSxK';
@@ -253,13 +260,14 @@ export function installSecurity(app: Express) {
     res.json({ ok: true });
   });
   app.put('/api/auth/password', async (req, res) => {
+    const input = objectBody(req.body);
     const old = await db.get('SELECT * FROM usuarios_acceso WHERE id = ?', [req.user!.id]);
     assert(
-      await bcrypt.compare(String(req.body.actual ?? ''), old.password_hash),
+      await bcrypt.compare(String(input.actual ?? ''), old.password_hash),
       400,
       'La contraseña actual no es correcta.',
     );
-    const password = validatePassword(req.body.password);
+    const password = validatePassword(input.password);
     await db.update('usuarios_acceso', old.id, {
       password_hash: await bcrypt.hash(password, 12),
       session_version: old.session_version + 1,
@@ -269,13 +277,12 @@ export function installSecurity(app: Express) {
   });
 }
 export function validatePassword(value: unknown) {
-  const password = String(value ?? '');
   assert(
-    password.length >= 10 && Buffer.byteLength(password, 'utf8') <= 72,
+    typeof value === 'string' && value.length >= 10 && Buffer.byteLength(value, 'utf8') <= 72,
     400,
     'La contraseña debe tener entre 10 y 72 caracteres.',
   );
-  return password;
+  return value;
 }
 export async function requireStudent(req: Request, id: number) {
   const alumno = await db.get('SELECT * FROM alumnos WHERE id = ?', [id]);

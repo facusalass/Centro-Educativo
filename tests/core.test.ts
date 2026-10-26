@@ -663,7 +663,140 @@ test('las evaluaciones cargan sus relaciones en bloque sin mezclar notas ni entr
     db.all = originalAll;
   }
 });
+test('rechaza escrituras de otros sitios y conserva la sesión original', async () => {
+  for (const headers of [
+    { Origin: 'https://sitio-ajeno.example' },
+    { 'Sec-Fetch-Site': 'cross-site' },
+  ]) {
+    const response = await fetch(base + '/auth/logout', {
+      method: 'POST',
+      headers: { Cookie: parent, ...headers },
+    });
+    assert.equal(response.status, 403);
+    assert.equal((await api('/auth/me', parent)).status, 200);
+  }
+});
+
+test('los datos privados no se cachean y no se divulga el framework', async () => {
+  const response = await fetch(base + '/admin/bootstrap', { headers: { Cookie: admin } });
+  assert.equal(response.status, 200);
+  assert.match(response.headers.get('cache-control')!, /no-store/);
+  assert.equal(response.headers.get('x-powered-by'), null);
+  assert.equal(response.headers.get('x-content-type-options'), 'nosniff');
+  const body = JSON.stringify(await response.json());
+  assert.ok(!body.includes('password_hash'));
+  assert.ok(!body.includes('session_version'));
+});
+
+test('cuerpos ausentes, JSON inválido y tamaños excesivos devuelven errores controlados', async () => {
+  for (const [path, method, cookie] of [
+    ['/auth/login', 'POST', ''],
+    ['/auth/password', 'PUT', parent],
+    ['/cursos', 'POST', admin],
+  ]) {
+    const response = await fetch(base + path, { method, headers: { Cookie: cookie } });
+    assert.equal(response.status, 400, path);
+  }
+  for (const body of ['[]', '{"email":', 'null']) {
+    const response = await fetch(base + '/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body,
+    });
+    assert.equal(response.status, 400, body);
+    assert.equal(typeof (await response.json()).error, 'string');
+  }
+  const oversized = await fetch(base + '/contacto', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ mensaje: 'x'.repeat(270000) }),
+  });
+  assert.equal(oversized.status, 413);
+  assert.equal((await api('/health')).status, 200);
+});
+
+test('el registro no eleva permisos y cambiar contraseña revoca la sesión anterior', async () => {
+  const email = 'seguridad-familia@test.com';
+  const initial = 'Clave-Inicial-2027';
+  const updated = 'Clave-Actualizada-2027';
+  const created = await api('/padres/registro', '', 'POST', {
+    email,
+    password: initial,
+    nombre_padre: 'Prueba Seguridad',
+    nombre_hijo: 'Hijo Seguridad',
+    apellido_hijo: 'Prueba',
+    dni_hijo: '51112233',
+    curso_id: 2,
+    rol: 'admin',
+    referencia_id: 1,
+  });
+  assert.equal(created.status, 201);
+  assert.equal(created.data.usuario.rol, 'padre');
+  assert.equal((await api('/usuarios', created.cookie)).status, 403);
+  assert.equal(
+    (
+      await api('/auth/password', created.cookie, 'PUT', {
+        actual: 'incorrecta',
+        password: updated,
+      })
+    ).status,
+    400,
+  );
+  assert.equal(
+    (
+      await api('/auth/password', created.cookie, 'PUT', {
+        actual: initial,
+        password: 123456789012,
+      })
+    ).status,
+    400,
+  );
+  assert.equal(
+    (
+      await api('/auth/password', created.cookie, 'PUT', {
+        actual: initial,
+        password: 'á'.repeat(40),
+      })
+    ).status,
+    400,
+  );
+  assert.equal((await api('/auth/me', created.cookie)).status, 200);
+  assert.equal(
+    (await api('/auth/password', created.cookie, 'PUT', { actual: initial, password: updated }))
+      .status,
+    200,
+  );
+  assert.equal((await api('/auth/me', created.cookie)).status, 401);
+  assert.equal((await api('/auth/login', '', 'POST', { email, password: initial })).status, 401);
+  const login = await api('/auth/login', '', 'POST', { email, password: updated });
+  assert.equal(login.status, 200);
+  assert.equal((await api('/auth/me', login.cookie)).status, 200);
+});
+
+test('un fallo de base de datos no se interpreta como una sesión inválida', async () => {
+  const originalGet = db.get;
+  db.get = async () => {
+    throw Object.assign(new Error('Fallo simulado'), { code: 'ECONNRESET' });
+  };
+  try {
+    const response = await api('/auth/me', parent);
+    assert.equal(response.status, 500);
+    assert.ok(!JSON.stringify(response.data).includes('ECONNRESET'));
+  } finally {
+    db.get = originalGet;
+  }
+  assert.equal((await api('/auth/me', parent)).status, 200);
+});
+
 test('logout revoca el token y no permite reutilizarlo', async () => {
   assert.equal((await api('/auth/logout', parent, 'POST')).status, 200);
   assert.equal((await api('/auth/me', parent)).status, 401);
+});
+
+test('el acceso limita intentos repetidos de autenticación', async () => {
+  const results = await Promise.all(
+    Array.from({ length: 35 }, () => api('/auth/login', '', 'POST', {})),
+  );
+  assert.ok(results.some((result) => result.status === 429));
+  assert.ok(results.every((result) => result.status === 400 || result.status === 429));
 });

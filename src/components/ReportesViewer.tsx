@@ -1,141 +1,42 @@
-import {
-  renderAlumnosPorCurso,
-  renderAlumnosPorDeporte,
-  renderAlumnosPorDeporteNivel,
-  renderAlumnosPorDeporteDetalle,
-  renderAlumnosPorRecorrido,
-  renderAlumnosPorMateria,
-  renderDocentesPorNivel,
-  renderReporteAlumno,
-  renderReporteDocente,
-} from './reports/renderers';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Printer, Download, Search, X } from 'lucide-react';
 import { Button } from './Button';
 import { ErrorBoundary } from './ErrorBoundary';
-import { api } from '../services/api';
-import type {
-  Alumno,
-  Docente,
-  ReporteAlumno,
-  ReporteDocente,
-  AlumnosPorDeporte,
-  AlumnosPorDeporteNivel,
-  AlumnosPorDeporteDetalle,
-  AlumnosPorRecorrido,
-  AlumnosPorMateria,
-  DocentesPorNivel,
-  AlumnosPorCurso,
-} from '../types';
+import { ReportContent } from './reports/ReportContent';
+import { useReport } from '../hooks/useReport';
+import { reportDefinitions, type ReportType } from '../services/reports';
+import type { Alumno, Docente } from '../types';
 
 interface ReportesViewerProps {
   alumnos: Alumno[];
   docentes: Docente[];
 }
 
-interface ReportState {
-  tipo: string;
-  data: unknown;
-}
-
 export function ReportesViewer({ alumnos, docentes }: ReportesViewerProps) {
   const [search, setSearch] = useState('');
-  const [tipo, setTipo] = useState<string>('alumnos-por-curso');
+  const [tipo, setTipo] = useState<ReportType>('alumnos-por-curso');
   const [idConsulta, setIdConsulta] = useState<string>('');
-  const [reportState, setReportState] = useState<ReportState | null>(null);
-  const [loading, setLoading] = useState<boolean>(false);
-  const [estado, setEstado] = useState<string>('');
-  const [fechaGeneracion, setFechaGeneracion] = useState<string>('');
-  const [reloadTrigger, setReloadTrigger] = useState(0);
   const [previewOpen, setPreviewOpen] = useState(false);
-
-  function cargar() {
-    setReloadTrigger((prev) => prev + 1);
-  }
-
-  useEffect(() => {
-    let active = true;
-
-    async function cargarReporte() {
-      setLoading(true);
-      setEstado('Generando reporte...');
-      setFechaGeneracion(new Date().toLocaleString('es-AR'));
-
-      const targetId =
-        idConsulta ||
-        (tipo === 'alumno'
-          ? alumnos[0]?.id
-            ? String(alumnos[0].id)
-            : ''
-          : tipo === 'docente'
-            ? docentes[0]?.id
-              ? String(docentes[0].id)
-              : ''
-            : '');
-
-      try {
-        let result: unknown = null;
-        if (tipo === 'alumnos-por-curso') {
-          result = await api.getAlumnosPorCurso();
-        } else if (tipo === 'alumnos-por-deporte') {
-          result = await api.getAlumnosPorDeporte();
-        } else if (tipo === 'alumnos-por-deporte-nivel') {
-          result = await api.getAlumnosPorDeporteNivel();
-        } else if (tipo === 'alumnos-por-deporte-detalle') {
-          result = await api.getAlumnosPorDeporteDetalle();
-        } else if (tipo === 'alumnos-por-recorrido') {
-          result = await api.getAlumnosPorRecorrido();
-        } else if (tipo === 'alumnos-por-materia') {
-          result = await api.getAlumnosPorMateria();
-        } else if (tipo === 'docentes-por-nivel') {
-          result = await api.getDocentesPorNivel();
-        } else if (tipo === 'alumno') {
-          const id = targetId ? Number(targetId) : undefined;
-          if (!id) {
-            if (active) {
-              setEstado('Selecciona un alumno.');
-              setLoading(false);
-            }
-            return;
-          }
-          result = await api.getReporteAlumno(id);
-        } else if (tipo === 'docente') {
-          const id = targetId ? Number(targetId) : undefined;
-          if (!id) {
-            if (active) {
-              setEstado('Selecciona un docente.');
-              setLoading(false);
-            }
-            return;
-          }
-          result = await api.getReporteDocente(id);
-        }
-
-        if (!active) return;
-        setReportState({ tipo, data: result });
-        setEstado('Reporte actualizado.');
-      } catch (error) {
-        if (!active) return;
-        setEstado(error instanceof Error ? error.message : 'Error al generar el reporte.');
-      } finally {
-        if (active) {
-          setLoading(false);
-        }
-      }
-    }
-
-    cargarReporte();
-
-    return () => {
-      active = false;
-    };
-  }, [tipo, idConsulta, reloadTrigger, alumnos, docentes]);
-
-  const isDataMatching = reportState !== null && reportState.tipo === tipo;
-  const currentData = isDataMatching ? reportState.data : null;
-
+  const previewRef = useRef<HTMLDivElement>(null);
+  const [renderErrorKey, setRenderErrorKey] = useState('');
+  const targetId =
+    tipo === 'alumno'
+      ? idConsulta || String(alumnos[0]?.id ?? '')
+      : tipo === 'docente'
+        ? idConsulta || String(docentes[0]?.id ?? '')
+        : '';
+  const { state, reload: cargar } = useReport(tipo, targetId);
+  const loading = state.status === 'loading';
+  const estado =
+    state.status === 'success'
+      ? 'Reporte actualizado.'
+      : state.status === 'loading'
+        ? 'Generando reporte...'
+        : state.message;
+  const fechaGeneracion = state.status === 'success' ? state.generatedAt : '';
+  const currentData = state.status === 'success' ? state.data : null;
   const filtered =
-    !isDataMatching || currentData === null
+    currentData === null
       ? null
       : Array.isArray(currentData)
         ? currentData.filter((row) =>
@@ -144,8 +45,45 @@ export function ReportesViewer({ alumnos, docentes }: ReportesViewerProps) {
         : JSON.stringify(currentData).toLocaleLowerCase().includes(search.toLocaleLowerCase())
           ? currentData
           : null;
+  const canExport = state.status === 'success' && filtered !== null && renderErrorKey !== state.key;
+
+  useEffect(() => {
+    setPreviewOpen(false);
+  }, [state.key]);
+
+  useEffect(() => {
+    if (!previewOpen) return;
+    const root = previewRef.current;
+    if (!root) return;
+    const previousFocus = document.activeElement;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const buttons = root.querySelectorAll<HTMLButtonElement>('.report-preview-toolbar button');
+    buttons[0]?.focus();
+    const close = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setPreviewOpen(false);
+      if (event.key === 'Tab') {
+        const first = buttons[0],
+          last = buttons[buttons.length - 1];
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault();
+          last?.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault();
+          first?.focus();
+        }
+      }
+    };
+    window.addEventListener('keydown', close);
+    return () => {
+      window.removeEventListener('keydown', close);
+      document.body.style.overflow = previousOverflow;
+      if (previousFocus instanceof HTMLElement && previousFocus.isConnected) previousFocus.focus();
+    };
+  }, [previewOpen]);
 
   function exportCsv() {
+    if (!canExport) return;
     const rows = [...document.querySelectorAll('#printable-report table tr')]
       .map((row) =>
         [...row.querySelectorAll('th,td')]
@@ -181,18 +119,6 @@ export function ReportesViewer({ alumnos, docentes }: ReportesViewerProps) {
     window.print();
   }
 
-  const reportTitles: Record<string, string> = {
-    'alumnos-por-curso': 'Nómina de Alumnos por Curso y División',
-    'alumnos-por-deporte': 'Nómina de Alumnos por Deporte y Comisiones',
-    'alumnos-por-deporte-nivel': 'Nómina de Alumnos por Deporte y Nivel Educativo',
-    'alumnos-por-deporte-detalle': 'Nómina de Deportes por Horario y Docente a Cargo',
-    'alumnos-por-recorrido': 'Nómina de Alumnos por Recorrido de Transporte',
-    'alumnos-por-materia': 'Nómina de Alumnos por Materia y Docente',
-    'docentes-por-nivel': 'Planta Docente por Nivel Educativo y Cursos',
-    alumno: 'Ficha y Legajo Integral del Alumno',
-    docente: 'Carga Horaria y Asignaciones del Docente',
-  };
-
   return (
     <section className="admin-section reportes-section">
       <div className="no-print">
@@ -207,9 +133,10 @@ export function ReportesViewer({ alumnos, docentes }: ReportesViewerProps) {
           style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', alignItems: 'center' }}
         >
           <select
+            aria-label="Tipo de reporte"
             value={tipo}
             onChange={(e) => {
-              const newTipo = e.target.value;
+              const newTipo = e.target.value as ReportType;
               setTipo(newTipo);
               if (newTipo === 'alumno') {
                 setIdConsulta(alumnos[0] ? String(alumnos[0].id) : '');
@@ -237,6 +164,7 @@ export function ReportesViewer({ alumnos, docentes }: ReportesViewerProps) {
 
           {tipo === 'alumno' && (
             <select
+              aria-label="Alumno del reporte"
               value={idConsulta || (alumnos[0] ? String(alumnos[0].id) : '')}
               onChange={(e) => setIdConsulta(e.target.value)}
             >
@@ -250,6 +178,7 @@ export function ReportesViewer({ alumnos, docentes }: ReportesViewerProps) {
 
           {tipo === 'docente' && (
             <select
+              aria-label="Docente del reporte"
               value={idConsulta || (docentes[0] ? String(docentes[0].id) : '')}
               onChange={(e) => setIdConsulta(e.target.value)}
             >
@@ -267,30 +196,27 @@ export function ReportesViewer({ alumnos, docentes }: ReportesViewerProps) {
             value={search}
             onChange={(event) => setSearch(event.target.value)}
           />
-          <Button
-            type="button"
-            variant="outline"
-            onClick={exportCsv}
-            disabled={!filtered || loading || !isDataMatching}
-          >
+          <Button type="button" variant="outline" onClick={exportCsv} disabled={!canExport}>
             <Download size={16} /> Exportar CSV
           </Button>
           <Button type="button" onClick={cargar} disabled={loading}>
             <Search size={16} /> Actualizar Reporte
           </Button>
 
-          {filtered !== null && isDataMatching && !loading && (
+          {canExport && (
             <Button type="button" variant="outline" onClick={openPreview}>
               <Printer size={16} /> Guardar / Descargar PDF
             </Button>
           )}
 
-          <span className="admin-status">{estado}</span>
+          <span className="admin-status" role={state.status === 'error' ? 'alert' : 'status'}>
+            {estado}
+          </span>
         </div>
       </div>
 
-      <ErrorBoundary key={tipo} onReset={cargar}>
-        {loading || !isDataMatching ? (
+      <ErrorBoundary key={state.key} onReset={cargar} onError={() => setRenderErrorKey(state.key)}>
+        {loading ? (
           <div
             className="report-loading-container"
             style={{
@@ -314,12 +240,18 @@ export function ReportesViewer({ alumnos, docentes }: ReportesViewerProps) {
             </p>
           </div>
         ) : filtered !== null ? (
-          <div className={previewOpen ? 'report-preview-overlay' : 'report-preview-inline'}>
+          <div
+            ref={previewRef}
+            className={previewOpen ? 'report-preview-overlay' : 'report-preview-inline'}
+            role={previewOpen ? 'dialog' : undefined}
+            aria-modal={previewOpen || undefined}
+            aria-label={previewOpen ? 'Vista previa del reporte' : undefined}
+          >
             {previewOpen && (
               <div className="report-preview-toolbar no-print">
                 <div>
                   <strong>Vista previa</strong>
-                  <span>{reportTitles[tipo] ?? 'Reporte Institucional'}</span>
+                  <span>{reportDefinitions[tipo]}</span>
                 </div>
                 <div className="report-preview-actions">
                   <Button type="button" onClick={confirmPrint}>
@@ -341,7 +273,7 @@ export function ReportesViewer({ alumnos, docentes }: ReportesViewerProps) {
                     Sistema de Gestión Web Institucional • Resistencia, Chaco
                   </p>
                   <h4 style={{ margin: '8px 0 0 0', color: 'var(--blue-800)', fontSize: '1.1rem' }}>
-                    {reportTitles[tipo] ?? 'Reporte Institucional'}
+                    {reportDefinitions[tipo]}
                   </h4>
                 </div>
                 <div className="report-meta">
@@ -364,24 +296,11 @@ export function ReportesViewer({ alumnos, docentes }: ReportesViewerProps) {
                 </div>
               </div>
 
-              {/* RENDER REPORT TABLES BY TYPE */}
-              {tipo === 'alumnos-por-curso' && renderAlumnosPorCurso(filtered as AlumnosPorCurso)}
-              {tipo === 'alumnos-por-deporte' &&
-                renderAlumnosPorDeporte(filtered as AlumnosPorDeporte)}
-              {tipo === 'alumnos-por-deporte-nivel' &&
-                renderAlumnosPorDeporteNivel(filtered as AlumnosPorDeporteNivel)}
-              {tipo === 'alumnos-por-deporte-detalle' &&
-                renderAlumnosPorDeporteDetalle(filtered as AlumnosPorDeporteDetalle)}
-              {tipo === 'alumnos-por-recorrido' &&
-                renderAlumnosPorRecorrido(filtered as AlumnosPorRecorrido)}
-              {tipo === 'alumnos-por-materia' &&
-                renderAlumnosPorMateria(filtered as AlumnosPorMateria)}
-              {tipo === 'docentes-por-nivel' &&
-                renderDocentesPorNivel(filtered as DocentesPorNivel)}
-              {tipo === 'alumno' && renderReporteAlumno(filtered as ReporteAlumno)}
-              {tipo === 'docente' && renderReporteDocente(filtered as ReporteDocente)}
+              <ReportContent type={tipo} data={filtered} />
             </div>
           </div>
+        ) : state.status === 'success' ? (
+          <p role="status">No hay resultados para la búsqueda.</p>
         ) : null}
       </ErrorBoundary>
     </section>
