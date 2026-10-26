@@ -10,7 +10,7 @@ import {
   renderReporteDocente,
 } from './reports/renderers';
 import { useState, useEffect } from 'react';
-import { Printer, Download, Search } from 'lucide-react';
+import { Printer, Download, Search, X } from 'lucide-react';
 import { Button } from './Button';
 import { ErrorBoundary } from './ErrorBoundary';
 import { api } from '../services/api';
@@ -47,6 +47,7 @@ export function ReportesViewer({ alumnos, docentes }: ReportesViewerProps) {
   const [estado, setEstado] = useState<string>('');
   const [fechaGeneracion, setFechaGeneracion] = useState<string>('');
   const [reloadTrigger, setReloadTrigger] = useState(0);
+  const [previewOpen, setPreviewOpen] = useState(false);
 
   function cargar() {
     setReloadTrigger((prev) => prev + 1);
@@ -162,11 +163,21 @@ export function ReportesViewer({ alumnos, docentes }: ReportesViewerProps) {
     const anchor = document.createElement('a');
     anchor.href = url;
     anchor.download = `reporte-${tipo}.csv`;
+    anchor.style.display = 'none';
+    // The anchor has to live in the document for every engine to start the
+    // download, and the object URL has to outlive the click: revoking it
+    // synchronously can cancel the transfer before the browser reads the blob.
+    document.body.append(anchor);
     anchor.click();
-    URL.revokeObjectURL(url);
+    anchor.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
-  function handlePrint() {
+  function openPreview() {
+    setPreviewOpen(true);
+  }
+
+  function confirmPrint() {
     window.print();
   }
 
@@ -208,6 +219,7 @@ export function ReportesViewer({ alumnos, docentes }: ReportesViewerProps) {
                 setIdConsulta('');
               }
               setSearch('');
+              setPreviewOpen(false);
             }}
           >
             <option value="alumnos-por-curso">1. Alumnos por Curso / Grado</option>
@@ -268,7 +280,7 @@ export function ReportesViewer({ alumnos, docentes }: ReportesViewerProps) {
           </Button>
 
           {filtered !== null && isDataMatching && !loading && (
-            <Button type="button" variant="outline" onClick={handlePrint}>
+            <Button type="button" variant="outline" onClick={openPreview}>
               <Printer size={16} /> Guardar / Descargar PDF
             </Button>
           )}
@@ -302,54 +314,73 @@ export function ReportesViewer({ alumnos, docentes }: ReportesViewerProps) {
             </p>
           </div>
         ) : filtered !== null ? (
-          <div id="printable-report" className="report-container">
-            <div className="report-header-print">
-              <div>
-                <h3 className="report-institution-title">
-                  CENTRO EDUCATIVO "EDUCAR PARA TRANSFORMAR"
-                </h3>
-                <p className="report-subtitle">
-                  Sistema de Gestión Web Institucional • Resistencia, Chaco
-                </p>
-                <h4 style={{ margin: '8px 0 0 0', color: 'var(--blue-800)', fontSize: '1.1rem' }}>
-                  {reportTitles[tipo] ?? 'Reporte Institucional'}
-                </h4>
-              </div>
-              <div className="report-meta">
+          <div className={previewOpen ? 'report-preview-overlay' : 'report-preview-inline'}>
+            {previewOpen && (
+              <div className="report-preview-toolbar no-print">
                 <div>
-                  <strong>Fecha de emisión:</strong> {fechaGeneracion}
+                  <strong>Vista previa</strong>
+                  <span>{reportTitles[tipo] ?? 'Reporte Institucional'}</span>
                 </div>
-                <div>
-                  <strong>Documento:</strong> Oficial Interno
-                </div>
-                <div className="no-print" style={{ marginTop: '8px' }}>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={handlePrint}
-                    style={{ fontSize: '0.78rem', padding: '4px 10px' }}
-                  >
-                    <Download size={14} /> Imprimir / PDF
+                <div className="report-preview-actions">
+                  <Button type="button" onClick={confirmPrint}>
+                    <Printer size={16} /> Imprimir
+                  </Button>
+                  <Button type="button" variant="outline" onClick={() => setPreviewOpen(false)}>
+                    <X size={16} /> Cerrar
                   </Button>
                 </div>
               </div>
-            </div>
+            )}
+            <div id="printable-report" className="report-container">
+              <div className="report-header-print">
+                <div>
+                  <h3 className="report-institution-title">
+                    CENTRO EDUCATIVO "EDUCAR PARA TRANSFORMAR"
+                  </h3>
+                  <p className="report-subtitle">
+                    Sistema de Gestión Web Institucional • Resistencia, Chaco
+                  </p>
+                  <h4 style={{ margin: '8px 0 0 0', color: 'var(--blue-800)', fontSize: '1.1rem' }}>
+                    {reportTitles[tipo] ?? 'Reporte Institucional'}
+                  </h4>
+                </div>
+                <div className="report-meta">
+                  <div>
+                    <strong>Fecha de emisión:</strong> {fechaGeneracion}
+                  </div>
+                  <div>
+                    <strong>Documento:</strong> Oficial Interno
+                  </div>
+                  <div className="no-print" style={{ marginTop: '8px' }}>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={openPreview}
+                      style={{ fontSize: '0.78rem', padding: '4px 10px' }}
+                    >
+                      <Download size={14} /> Imprimir / PDF
+                    </Button>
+                  </div>
+                </div>
+              </div>
 
-            {/* RENDER REPORT TABLES BY TYPE */}
-            {tipo === 'alumnos-por-curso' && renderAlumnosPorCurso(filtered as AlumnosPorCurso)}
-            {tipo === 'alumnos-por-deporte' &&
-              renderAlumnosPorDeporte(filtered as AlumnosPorDeporte)}
-            {tipo === 'alumnos-por-deporte-nivel' &&
-              renderAlumnosPorDeporteNivel(filtered as AlumnosPorDeporteNivel)}
-            {tipo === 'alumnos-por-deporte-detalle' &&
-              renderAlumnosPorDeporteDetalle(filtered as AlumnosPorDeporteDetalle)}
-            {tipo === 'alumnos-por-recorrido' &&
-              renderAlumnosPorRecorrido(filtered as AlumnosPorRecorrido)}
-            {tipo === 'alumnos-por-materia' &&
-              renderAlumnosPorMateria(filtered as AlumnosPorMateria)}
-            {tipo === 'docentes-por-nivel' && renderDocentesPorNivel(filtered as DocentesPorNivel)}
-            {tipo === 'alumno' && renderReporteAlumno(filtered as ReporteAlumno)}
-            {tipo === 'docente' && renderReporteDocente(filtered as ReporteDocente)}
+              {/* RENDER REPORT TABLES BY TYPE */}
+              {tipo === 'alumnos-por-curso' && renderAlumnosPorCurso(filtered as AlumnosPorCurso)}
+              {tipo === 'alumnos-por-deporte' &&
+                renderAlumnosPorDeporte(filtered as AlumnosPorDeporte)}
+              {tipo === 'alumnos-por-deporte-nivel' &&
+                renderAlumnosPorDeporteNivel(filtered as AlumnosPorDeporteNivel)}
+              {tipo === 'alumnos-por-deporte-detalle' &&
+                renderAlumnosPorDeporteDetalle(filtered as AlumnosPorDeporteDetalle)}
+              {tipo === 'alumnos-por-recorrido' &&
+                renderAlumnosPorRecorrido(filtered as AlumnosPorRecorrido)}
+              {tipo === 'alumnos-por-materia' &&
+                renderAlumnosPorMateria(filtered as AlumnosPorMateria)}
+              {tipo === 'docentes-por-nivel' &&
+                renderDocentesPorNivel(filtered as DocentesPorNivel)}
+              {tipo === 'alumno' && renderReporteAlumno(filtered as ReporteAlumno)}
+              {tipo === 'docente' && renderReporteDocente(filtered as ReporteDocente)}
+            </div>
           </div>
         ) : null}
       </ErrorBoundary>
