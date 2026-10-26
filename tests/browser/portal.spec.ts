@@ -1,6 +1,11 @@
 import { test, expect, type Page } from '@playwright/test';
 async function login(page: Page, email: string, password: string) {
-  await page.goto('/login');
+  // Al cerrar sesión la app ya redirige a /login. Navegar otra vez compite con
+  // esa redirección y Playwright aborta con "interrupted by another
+  // navigation", así que solo navegamos cuando todavía no estamos ahí.
+  if (!new URL(page.url()).pathname.startsWith('/login')) {
+    await page.goto('/login');
+  }
   await page.getByLabel('Email', { exact: true }).fill(email);
   await page.getByLabel('Contraseña', { exact: true }).fill(password);
   await page.getByRole('button', { name: 'Ingresar', exact: true }).click();
