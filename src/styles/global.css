@@ -172,6 +172,37 @@
   border: 0 !important;
   background: transparent !important;
 }
+.entity-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+.entity-filters .search-field {
+  flex: 1 1 260px;
+}
+.filter-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  border: 1px solid var(--gray-200);
+  border-radius: 10px;
+  background: var(--white, #fff);
+}
+.filter-field-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--gray-600);
+  white-space: nowrap;
+}
+.filter-field select {
+  border: 0 !important;
+  background: transparent !important;
+  padding: 8px 0;
+  min-width: 130px;
+}
 .feedback {
   border: 1px solid #a5b4fc;
   background: #eef2ff;

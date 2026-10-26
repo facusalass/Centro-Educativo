@@ -6,6 +6,9 @@ import { request } from '../services/api';
 import { Button } from './Button';
 import { Feedback } from './PortalShell';
 export type Row = Record<string, any>;
+// Category-like fields a catalog can be narrowed by. The entity's facet is the
+// one of these its table exposes with the most distinct values.
+const FILTER_FACETS = ['rol', 'nivel', 'estado', 'tipo'];
 export function rowLabel(row: Row) {
   return row.anio
     ? `${row.nivel} · ${row.anio} ${row.division}`
@@ -28,12 +31,14 @@ export function EntityManager({
     [editing, setEditing] = useState<Row | null>(null),
     [pending, setPending] = useState(false),
     [message, setMessage] = useState(''),
+    [facetValue, setFacetValue] = useState(''),
     [error, setError] = useState('');
   useEffect(() => {
     setEditing(null);
     setMessage('');
     setError('');
     setQuery('');
+    setFacetValue('');
   }, [definition.path]);
   const options = (field: Field, row: Row): Row[] =>
     field.source === 'padres'
@@ -97,15 +102,36 @@ export function EntityManager({
       setPending(false);
     }
   };
-  const filtered = rows.filter((r) =>
-    Object.values(r).join(' ').toLocaleLowerCase().includes(query.toLocaleLowerCase()),
+  const distinctValues = (key: string) =>
+    [...new Set(rows.map((row) => String(row[key] ?? '')).filter(Boolean))].sort();
+  // Among the category-like fields this table exposes, the facet is the one that
+  // actually discriminates the current rows; ties keep FILTER_FACETS priority.
+  const facetKey = FILTER_FACETS.filter((key) => definition.columns.includes(key)).reduce<
+    string | undefined
+  >(
+    (best, key) => (!best || distinctValues(key).length > distinctValues(best).length ? key : best),
+    undefined,
   );
+  const facet = facetKey ? definition.fields.find((field) => field.key === facetKey) : undefined;
+  const facetValues = facetKey ? distinctValues(facetKey) : [];
+  const filtered = rows.filter((row) => {
+    const matchesQuery = Object.values(row)
+      .join(' ')
+      .toLocaleLowerCase()
+      .includes(query.toLocaleLowerCase());
+    const matchesFacet = !facetValue || String(row[facetKey ?? ''] ?? '') === facetValue;
+    return matchesQuery && matchesFacet;
+  });
   return (
     <section className="panel-card">
       <div className="section-toolbar">
         <div>
           <h2>{definition.title}</h2>
-          <p>{rows.length} registros</p>
+          <p>
+            {filtered.length === rows.length
+              ? `${rows.length} registros`
+              : `${filtered.length} de ${rows.length} registros`}
+          </p>
         </div>
         <Button
           onClick={() => {
@@ -197,15 +223,34 @@ export function EntityManager({
           </div>
         </form>
       )}
-      <label className="search-field">
-        <Search size={18} />
-        <input
-          aria-label={`Buscar en ${definition.title}`}
-          placeholder="Buscar por nombre, legajo, DNI…"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-        />
-      </label>
+      <div className="entity-filters">
+        <label className="search-field">
+          <Search size={18} />
+          <input
+            aria-label={`Buscar en ${definition.title}`}
+            placeholder="Buscar por nombre, legajo, DNI…"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+        </label>
+        {facet && facetValues.length > 0 && (
+          <label className="filter-field">
+            <span className="filter-field-label">{facet.label}</span>
+            <select
+              aria-label={`Filtrar ${definition.title} por ${facet.label}`}
+              value={facetValue}
+              onChange={(e) => setFacetValue(e.target.value)}
+            >
+              <option value="">Todos</option>
+              {facetValues.map((value) => (
+                <option key={value} value={value}>
+                  {value}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+      </div>
       <div className="report-table-wrapper">
         <table className="report-table">
           <thead>
