@@ -45,12 +45,6 @@ export function ManagementPage() {
           <span>Cursos</span>
           <strong>{catalog.cursos?.length ?? '—'}</strong>
         </article>
-        <article>
-          <span>Base de datos</span>
-          <strong className="stat-text">
-            {status?.database === 'postgres' ? 'PostgreSQL' : (status?.database ?? 'Conectando…')}
-          </strong>
-        </article>
       </div>
       {status && !status.smtp && (
         <Feedback>
