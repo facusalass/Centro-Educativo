@@ -2,6 +2,8 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { ArrowLeft, KeyRound, ShieldCheck } from 'lucide-react';
 import { request } from '../services/api';
 import { useSession } from '../services/session';
+// Estilos móvil-first (>= 360px) compartidos con el portal (HU-02).
+import '../components/portal/mobile.css';
 import { Feedback } from '../components/PortalShell';
 import { Button } from '../components/Button';
 import type { Curso, UsuarioAcceso } from '../types';

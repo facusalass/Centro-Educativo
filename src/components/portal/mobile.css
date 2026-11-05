@@ -1,0 +1,88 @@
+/* Hoja de estilos móvil-first (>= 360px) del portal PWA (HU-01/HU-02/HU-06).
+   Todos los selectores están namespaced (portal-mobile-*, portal-desktop-tabs,
+   login-card) para no afectar ManagementPage ni otras vistas que también usan
+   .portal-tabs y .form-card. */
+
+.portal-mobile-nav {
+  display: none;
+}
+
+.portal-mobile-logout {
+  display: none;
+}
+
+@media (max-width: 899px) {
+  .portal-desktop-tabs {
+    display: none;
+  }
+
+  .portal-mobile-nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 40;
+    display: flex;
+    align-items: stretch;
+    border-top: 1px solid var(--gray-200, #e5e7eb);
+    background: rgba(255, 255, 255, 0.98);
+    box-shadow: 0 -8px 24px rgba(17, 24, 39, 0.08);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  .portal-mobile-nav button {
+    flex: 1;
+    min-width: 64px;
+    min-height: 56px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    padding: 8px 4px;
+    border: none;
+    border-radius: 0;
+    background: none;
+    color: var(--gray-600, #4b5563);
+    font-family: inherit;
+    font-size: 0.72rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .portal-mobile-nav button.active {
+    color: var(--blue-700, #4f46e5);
+  }
+
+  .portal-main:has(.portal-mobile-nav) {
+    padding-bottom: 104px;
+  }
+
+  .portal-mobile-logout {
+    display: block;
+  }
+}
+
+/* HU-02: login cómodo en pantallas de 360px, sin zoom en iOS y sin scroll
+   horizontal. */
+@media (max-width: 620px) {
+  .internal-page .login-layout {
+    padding: 28px 0 40px;
+    gap: 20px;
+  }
+
+  .login-card {
+    padding: 24px 18px;
+  }
+
+  .login-card input,
+  .login-card select {
+    min-height: 46px;
+    font-size: 16px;
+  }
+
+  .login-card .btn {
+    width: 100%;
+    min-height: 46px;
+  }
+}
