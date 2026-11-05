@@ -23,13 +23,30 @@ class ServiceDecorator implements MonthlyEnrollment {
 export async function monthlyQuote(studentId: number) {
   const fees = await db.all('SELECT * FROM tarifas');
   const services = await db.all(
-    "SELECT i.tipo, d.nombre AS deporte FROM inscripciones i LEFT JOIN grupos_deporte g ON g.id = i.grupo_deporte_id LEFT JOIN deportes d ON d.id = g.deporte_id WHERE i.alumno_id = ? AND i.estado = 'activo' ORDER BY i.id",
+    `SELECT i.tipo, d.nombre AS deporte, d.arancel_mensual AS deporte_arancel,
+            r.arancel_mensual AS recorrido_arancel
+     FROM inscripciones i
+     LEFT JOIN grupos_deporte g ON g.id = i.grupo_deporte_id
+     LEFT JOIN deportes d ON d.id = g.deporte_id
+     LEFT JOIN recorridos_transporte r ON r.id = i.recorrido_id
+     WHERE i.alumno_id = ? AND i.estado = 'activo' ORDER BY i.id`,
     [studentId],
   );
-  const required = ['base', ...services.map((s) => s.tipo)];
+  const amount = (type: string) => Number(fees.find((f) => f.tipo === type)!.monto);
+  // Differentiated rates (deportes.arancel_mensual / recorridos_transporte.arancel_mensual)
+  // override the flat tarifas amount; 0 falls back to the flat rate per type.
+  const rateOf = (service: any): number | null => {
+    const rate =
+      service.tipo === 'deporte'
+        ? Number(service.deporte_arancel)
+        : service.tipo === 'transporte'
+          ? Number(service.recorrido_arancel)
+          : 0;
+    return rate > 0 ? rate : null;
+  };
+  const required = ['base', ...services.filter((s) => rateOf(s) === null).map((s) => s.tipo)];
   if (required.some((type) => !fees.some((f) => f.tipo === type)))
     return { configurado: false, conceptos: [], total: null };
-  const amount = (type: string) => Number(fees.find((f) => f.tipo === type)!.monto);
   let enrollment: MonthlyEnrollment = new BaseEnrollment(amount('base'));
   for (const service of services)
     enrollment = new ServiceDecorator(
@@ -39,7 +56,7 @@ export async function monthlyQuote(studentId: number) {
         : service.tipo === 'transporte'
           ? 'Transporte'
           : 'Comedor',
-      amount(service.tipo),
+      rateOf(service) ?? amount(service.tipo),
     );
   const conceptos = enrollment.lines();
   return {

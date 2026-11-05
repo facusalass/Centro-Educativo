@@ -458,6 +458,9 @@ test('las nueve variantes de reportes responden sin datos de contraseñas', asyn
   );
 });
 test('Decorator compone el arancel base y los servicios realmente activos', async () => {
+  // Sin aranceles diferenciados la cuota vuelve a las tarifas planas por tipo.
+  await db.run('UPDATE deportes SET arancel_mensual = 0');
+  await db.run('UPDATE recorridos_transporte SET arancel_mensual = 0');
   for (const [tipo, monto] of [
     ['base', 50000],
     ['deporte', 5000],
@@ -799,4 +802,110 @@ test('el acceso limita intentos repetidos de autenticación', async () => {
   );
   assert.ok(results.some((result) => result.status === 429));
   assert.ok(results.every((result) => result.status === 400 || result.status === 429));
+});
+
+test('migración v5 agrega aranceles diferenciados y las tablas financieras', async () => {
+  const version = await db.get('SELECT MAX(version) AS version FROM schema_migrations');
+  assert.ok(Number(version.version) >= 5);
+  for (const table of [
+    'facturas',
+    'factura_items',
+    'pagos_comprobantes',
+    'pago_comprobante_items',
+    'recibos',
+    'password_resets',
+    'avisos_facturacion_log',
+  ]) {
+    assert.ok(
+      await db.get('SELECT name FROM sqlite_master WHERE type = ? AND name = ?', [
+        'table',
+        table,
+      ]),
+      `Falta la tabla ${table}.`,
+    );
+  }
+  const deporte = await db.get('SELECT arancel_mensual FROM deportes WHERE id = 1');
+  assert.ok(deporte.arancel_mensual !== undefined && Number(deporte.arancel_mensual) >= 0);
+});
+
+test('la cuota mensual usa aranceles diferenciados por deporte y recorrido', async () => {
+  const { monthlyQuote } = await import('../server/core/fees.js');
+  for (const [tipo, monto] of [
+    ['base', 50000],
+    ['deporte', 5000],
+    ['comedor', 12000],
+    ['transporte', 9000],
+  ]) {
+    if (!(await db.get('SELECT id FROM tarifas WHERE tipo = ?', [tipo])))
+      await db.insert('tarifas', { tipo, monto });
+  }
+  // Alumno 2 del seed: Futbol (grupo 1) y Recorrido 1 de transporte.
+  await db.run('UPDATE deportes SET arancel_mensual = 8000 WHERE id = 1');
+  await db.run('UPDATE recorridos_transporte SET arancel_mensual = 9200 WHERE id = 1');
+  const quote = await monthlyQuote(2);
+  assert.equal(quote.configurado, true);
+  assert.equal(quote.conceptos.find((c: any) => c.concepto === 'Deporte: Futbol').monto, 8000);
+  assert.equal(quote.conceptos.find((c: any) => c.concepto === 'Transporte').monto, 9200);
+  assert.equal(quote.total, 50000 + 8000 + 9200);
+  // Con arancel 0 cae a la tarifa plana por tipo (comportamiento previo).
+  await db.run('UPDATE deportes SET arancel_mensual = 0');
+  await db.run('UPDATE recorridos_transporte SET arancel_mensual = 0');
+  const flat = await monthlyQuote(2);
+  assert.equal(flat.conceptos.find((c: any) => c.concepto === 'Deporte: Futbol').monto, 5000);
+  assert.equal(flat.conceptos.find((c: any) => c.concepto === 'Transporte').monto, 9000);
+  assert.equal(flat.total, 50000 + 5000 + 9000);
+});
+
+test('el admin configura aranceles diferenciados con validación', async () => {
+  assert.equal(
+    (
+      await api('/deportes', admin, 'POST', {
+        nombre: 'Basquet',
+        profesor_id: 3,
+        arancel_mensual: -1,
+      })
+    ).status,
+    400,
+  );
+  assert.equal(
+    (
+      await api('/deportes', admin, 'POST', {
+        nombre: 'Basquet',
+        profesor_id: 3,
+        arancel_mensual: 7500,
+      })
+    ).status,
+    201,
+  );
+  const row = await db.get("SELECT arancel_mensual FROM deportes WHERE nombre = 'Basquet'");
+  assert.equal(Number(row.arancel_mensual), 7500);
+  assert.equal((await api('/recorridos/1', admin, 'PUT', { arancel_mensual: 12345 })).status, 200);
+  const route = await db.get('SELECT arancel_mensual FROM recorridos_transporte WHERE id = 1');
+  assert.equal(Number(route.arancel_mensual), 12345);
+});
+
+test('un alumno no puede superar los dos deportes simultáneos', async () => {
+  // El alumno 3 del seed ya tiene dos deportes activos; se intenta un tercero.
+  const alumno = await db.get('SELECT * FROM alumnos WHERE id = 3');
+  assert.ok(alumno, 'Falta el alumno 3 del seed.');
+  const existing = await db.get(
+    "SELECT COUNT(*) AS total FROM inscripciones WHERE alumno_id = 3 AND tipo = 'deporte' AND estado = 'activo'",
+  );
+  assert.equal(Number(existing.total), 2);
+  const basquet = await db.get("SELECT id FROM deportes WHERE nombre = 'Basquet'");
+  assert.ok(basquet, 'Depende del test de CRUD de aranceles.');
+  const grupoId = await db.insert('grupos_deporte', {
+    deporte_id: basquet.id,
+    nivel: alumno.nivel,
+    dia: 'Sábado',
+    horario: '09:00 - 10:30',
+    profesor_id: 3,
+  });
+  const third = await api('/inscripciones', admin, 'POST', {
+    alumno_id: 3,
+    tipo: 'deporte',
+    grupo_deporte_id: grupoId,
+  });
+  assert.equal(third.status, 409);
+  assert.match(JSON.stringify(third.data), /dos deportes/);
 });

@@ -256,7 +256,7 @@ export async function initializeDatabase() {
   if (process.env.SEED_DEMO !== 'true') {
     try {
       if (
-        Number((await get('SELECT MAX(version) AS version FROM schema_migrations'))?.version) >= 4
+        Number((await get('SELECT MAX(version) AS version FROM schema_migrations'))?.version) >= 5
       )
         return;
     } catch (error) {

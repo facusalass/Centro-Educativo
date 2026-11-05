@@ -65,6 +65,16 @@ export async function validateEntity(key: string, incoming: any, id?: number) {
       'El arancel no puede ser negativo.',
     );
   }
+  if (key === 'deportes' || key === 'recorridos') {
+    if (data.arancel_mensual !== undefined) {
+      assert(
+        Number.isFinite(Number(data.arancel_mensual)) && Number(data.arancel_mensual) >= 0,
+        400,
+        'El arancel mensual no puede ser negativo.',
+      );
+      data.arancel_mensual = Number(data.arancel_mensual);
+    }
+  }
   if (['alumnos', 'docentes'].includes(key)) {
     assert(/^\d{7,9}$/.test(merged.dni), 400, 'El DNI debe tener entre 7 y 9 dígitos.');
     for (const field of ['legajo', 'dni'])

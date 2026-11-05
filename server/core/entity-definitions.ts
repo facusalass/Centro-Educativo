@@ -43,7 +43,7 @@ export const entities: Record<string, Definition> = {
   },
   deportes: {
     table: 'deportes',
-    fields: ['nombre', 'descripcion', 'profesor_id'],
+    fields: ['nombre', 'descripcion', 'profesor_id', 'arancel_mensual'],
     required: ['nombre', 'profesor_id'],
   },
   'grupos-deporte': {
@@ -53,7 +53,7 @@ export const entities: Record<string, Definition> = {
   },
   recorridos: {
     table: 'recorridos_transporte',
-    fields: ['nombre', 'descripcion', 'horario', 'zona', 'cupo'],
+    fields: ['nombre', 'descripcion', 'horario', 'zona', 'cupo', 'arancel_mensual'],
     required: ['nombre', 'descripcion', 'horario', 'zona'],
   },
   servicios: {

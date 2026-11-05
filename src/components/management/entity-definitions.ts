@@ -140,10 +140,11 @@ export const entityDefinitions: Record<string, Entity> = {
   deportes: {
     path: 'deportes',
     title: 'Deportes',
-    columns: ['nombre', 'profesor_id', 'descripcion'],
+    columns: ['nombre', 'profesor_id', 'arancel_mensual'],
     fields: [
       f('nombre', 'Nombre'),
       ref('profesor_id', 'Profesor responsable', 'docentes'),
+      f('arancel_mensual', 'Arancel mensual en pesos', false, 'number'),
       f('descripcion', 'Descripción', false, 'textarea'),
     ],
   },
@@ -168,12 +169,13 @@ export const entityDefinitions: Record<string, Entity> = {
   recorridos: {
     path: 'recorridos',
     title: 'Transporte',
-    columns: ['nombre', 'zona', 'horario', 'cupo'],
+    columns: ['nombre', 'zona', 'horario', 'cupo', 'arancel_mensual'],
     fields: [
       f('nombre', 'Nombre'),
       f('zona', 'Zona'),
       f('horario', 'Horario de salida', true, 'time'),
       cupo,
+      f('arancel_mensual', 'Arancel mensual en pesos', false, 'number'),
       f('descripcion', 'Descripción', true, 'textarea'),
     ],
   },

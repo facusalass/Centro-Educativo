@@ -66,4 +66,125 @@ export async function migrateConstraints() {
       new Date().toISOString(),
     ]);
   });
+  await db.transaction(async () => {
+    if (await db.get('SELECT version FROM schema_migrations WHERE version = 5')) return;
+    const pk =
+      databaseMode === 'postgres' ? 'SERIAL PRIMARY KEY' : 'INTEGER PRIMARY KEY AUTOINCREMENT';
+    await db.exec(`
+      ALTER TABLE deportes ADD COLUMN arancel_mensual REAL NOT NULL DEFAULT 0 CHECK (arancel_mensual >= 0);
+      ALTER TABLE recorridos_transporte ADD COLUMN arancel_mensual REAL NOT NULL DEFAULT 0 CHECK (arancel_mensual >= 0);
+      CREATE TABLE IF NOT EXISTS facturas (
+        id ${pk},
+        numero_factura TEXT NOT NULL UNIQUE,
+        alumno_id INTEGER NOT NULL REFERENCES alumnos(id),
+        periodo TEXT NOT NULL,
+        fecha_emision TEXT,
+        fecha_vencimiento TEXT,
+        total REAL NOT NULL CHECK (total >= 0),
+        saldo_pendiente REAL NOT NULL CHECK (saldo_pendiente >= 0),
+        estado TEXT NOT NULL DEFAULT 'pendiente' CHECK (estado IN ('pendiente', 'parcial', 'en_revision', 'pagada', 'vencida')),
+        UNIQUE (alumno_id, periodo)
+      );
+      CREATE TABLE IF NOT EXISTS factura_items (
+        id ${pk},
+        factura_id INTEGER NOT NULL REFERENCES facturas(id),
+        tipo TEXT NOT NULL CHECK (tipo IN ('base', 'deporte', 'transporte', 'comedor')),
+        referencia_id INTEGER,
+        descripcion TEXT NOT NULL,
+        monto REAL NOT NULL CHECK (monto >= 0),
+        monto_pagado REAL NOT NULL DEFAULT 0 CHECK (monto_pagado >= 0),
+        estado TEXT NOT NULL DEFAULT 'pendiente' CHECK (estado IN ('pendiente', 'en_revision', 'pagado'))
+      );
+      CREATE TABLE IF NOT EXISTS pagos_comprobantes (
+        id ${pk},
+        factura_id INTEGER NOT NULL REFERENCES facturas(id),
+        padre_id INTEGER NOT NULL REFERENCES padres(id),
+        fecha_presentacion TEXT,
+        monto_declarado REAL NOT NULL CHECK (monto_declarado >= 0),
+        referencia_transferencia TEXT DEFAULT '',
+        archivo_nombre TEXT NOT NULL,
+        archivo_mime TEXT NOT NULL,
+        archivo_contenido TEXT NOT NULL,
+        estado TEXT NOT NULL DEFAULT 'en_revision' CHECK (estado IN ('en_revision', 'aprobado', 'rechazado')),
+        motivo_rechazo TEXT,
+        validado_por INTEGER REFERENCES usuarios_acceso(id),
+        fecha_validacion TEXT
+      );
+      CREATE TABLE IF NOT EXISTS pago_comprobante_items (
+        id ${pk},
+        comprobante_id INTEGER NOT NULL REFERENCES pagos_comprobantes(id),
+        factura_item_id INTEGER NOT NULL REFERENCES factura_items(id),
+        monto_imputado REAL NOT NULL CHECK (monto_imputado >= 0)
+      );
+      CREATE TABLE IF NOT EXISTS recibos (
+        id ${pk},
+        numero_recibo TEXT NOT NULL UNIQUE,
+        comprobante_id INTEGER NOT NULL UNIQUE REFERENCES pagos_comprobantes(id),
+        factura_id INTEGER NOT NULL REFERENCES facturas(id),
+        alumno_id INTEGER NOT NULL REFERENCES alumnos(id),
+        fecha_emision TEXT NOT NULL,
+        monto_total REAL NOT NULL CHECK (monto_total >= 0),
+        detalle_json TEXT NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS password_resets (
+        id ${pk},
+        usuario_id INTEGER NOT NULL REFERENCES usuarios_acceso(id),
+        token_hash TEXT NOT NULL,
+        expira_en TEXT NOT NULL,
+        usado INTEGER NOT NULL DEFAULT 0
+      );
+      CREATE TABLE IF NOT EXISTS avisos_facturacion_log (
+        id ${pk},
+        periodo TEXT NOT NULL,
+        tipo_aviso TEXT NOT NULL CHECK (tipo_aviso IN ('fin_de_mes', 'deuda_dia_20')),
+        padre_id INTEGER NOT NULL REFERENCES padres(id),
+        factura_id INTEGER NOT NULL REFERENCES facturas(id),
+        notificacion_id INTEGER REFERENCES notificaciones(id),
+        fecha_envio TEXT NOT NULL,
+        UNIQUE (periodo, tipo_aviso, factura_id)
+      );
+    `);
+    if (databaseMode === 'postgres')
+      await db.exec(`
+        ALTER TABLE facturas ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE factura_items ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE pagos_comprobantes ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE pago_comprobante_items ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE recibos ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE password_resets ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE avisos_facturacion_log ENABLE ROW LEVEL SECURITY;
+      `);
+    // Demo visibility only: the seed runs before migrations, so differentiated
+    // demo rates are backfilled here (same precedent as the v4 data backfill).
+    if (process.env.SEED_DEMO === 'true') {
+      await db.run(
+        'UPDATE deportes SET arancel_mensual = 8000 WHERE id = 1 AND arancel_mensual = 0',
+      );
+      await db.run(
+        'UPDATE deportes SET arancel_mensual = 6500 WHERE id = 2 AND arancel_mensual = 0',
+      );
+      await db.run(
+        'UPDATE deportes SET arancel_mensual = 10000 WHERE id = 3 AND arancel_mensual = 0',
+      );
+      await db.run(
+        'UPDATE deportes SET arancel_mensual = 7000 WHERE id = 4 AND arancel_mensual = 0',
+      );
+      await db.run(
+        'UPDATE recorridos_transporte SET arancel_mensual = 9200 WHERE id = 1 AND arancel_mensual = 0',
+      );
+      await db.run(
+        'UPDATE recorridos_transporte SET arancel_mensual = 9500 WHERE id = 2 AND arancel_mensual = 0',
+      );
+      await db.run(
+        'UPDATE recorridos_transporte SET arancel_mensual = 9100 WHERE id = 3 AND arancel_mensual = 0',
+      );
+      await db.run(
+        'UPDATE recorridos_transporte SET arancel_mensual = 8800 WHERE id = 4 AND arancel_mensual = 0',
+      );
+    }
+    await db.run('INSERT INTO schema_migrations (version, applied_at) VALUES (?, ?)', [
+      5,
+      new Date().toISOString(),
+    ]);
+  });
 }
