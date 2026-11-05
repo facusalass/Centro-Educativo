@@ -12,6 +12,28 @@ export type MonthlyQuote = {
   conceptos: { concepto: string; monto: number }[];
   total: number | null;
 };
+export type FacturaItem = {
+  id: number;
+  factura_id: number;
+  tipo: 'base' | 'deporte' | 'transporte' | 'comedor';
+  referencia_id: number | null;
+  descripcion: string;
+  monto: number;
+  monto_pagado: number;
+  estado: string;
+};
+export type Factura = {
+  id: number;
+  numero_factura: string;
+  alumno_id: number;
+  periodo: string;
+  fecha_emision: string;
+  fecha_vencimiento: string;
+  total: number;
+  saldo_pendiente: number;
+  estado: string;
+  items?: FacturaItem[];
+};
 export type StudentRosterEntry = { id: number; nombre: string; apellido: string; legajo: string };
 export type Submission = {
   id: number;

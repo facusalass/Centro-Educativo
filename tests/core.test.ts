@@ -1052,3 +1052,45 @@ test('un alumno no puede superar los dos deportes simultáneos', async () => {
   assert.equal(third.status, 409);
   assert.match(JSON.stringify(third.data), /dos deportes/);
 });
+
+test('T02 facturación mensual: genera período, idempotente y respeta RBAC', async () => {
+  const periodo = '2026-03';
+  const gen = await api('/facturas/generar-periodo', admin, 'POST', { periodo });
+  assert.equal(gen.status, 201, JSON.stringify(gen.data));
+  assert.equal(gen.data.periodo, periodo);
+  assert.ok(gen.data.creadas >= 2, JSON.stringify(gen.data));
+  const retry = await api('/facturas/generar-periodo', admin, 'POST', { periodo });
+  assert.equal(retry.status, 201);
+  assert.equal(retry.data.creadas, 0);
+  assert.ok(retry.data.omitidas >= 2);
+  assert.equal((await api('/facturas/generar-periodo', otherParent, 'POST', { periodo })).status, 403);
+  assert.equal((await api('/facturas/generar-periodo', '', 'POST', { periodo })).status, 401);
+  assert.equal((await api('/facturas/generar-periodo', admin, 'POST', { periodo: '2026-13' })).status, 400);
+  const list = await api(`/facturas?alumno_id=${otherChild}`, otherParent);
+  assert.equal(list.status, 200, JSON.stringify(list.data));
+  assert.ok(Array.isArray(list.data) && list.data.length === 1);
+  const fac = list.data[0];
+  assert.equal(fac.periodo, periodo);
+  assert.match(fac.numero_factura, /^FAC-202603-\d{4}$/);
+  assert.ok(fac.total > 0 && fac.saldo_pendiente === fac.total);
+  const detail = await api(`/facturas/${fac.id}`, otherParent);
+  assert.equal(detail.status, 200);
+  assert.ok(Array.isArray(detail.data.items) && detail.data.items.length >= 1);
+  assert.equal((await api(`/facturas/${fac.id}`, otherParent)).status, 200);
+  const pagos = await api(`/pagos/alumno/${otherChild}`, otherParent);
+  assert.equal(pagos.status, 200);
+  assert.ok(Array.isArray(pagos.data.comprobantes) && Array.isArray(pagos.data.recibos));
+  assert.equal((await api(`/facturas/${fac.id}`, admin)).status, 200);
+  assert.equal((await api(`/pagos/alumno/${otherChild}`, admin)).status, 200);
+});
+
+test('T02 estado vencida se deriva en lectura y no se persiste', async () => {
+  const fac = await db.get('SELECT * FROM facturas ORDER BY id DESC LIMIT 1');
+  assert.ok(fac);
+  await db.run("UPDATE facturas SET fecha_vencimiento = '2000-01-10', estado = 'pendiente' WHERE id = ?", [fac.id]);
+  const list = await api(`/facturas?alumno_id=${fac.alumno_id}&estado=vencida`, admin);
+  assert.equal(list.status, 200);
+  assert.ok(list.data.some((r) => r.id === fac.id), JSON.stringify(list.data));
+  const stored = await db.get('SELECT estado FROM facturas WHERE id = ?', [fac.id]);
+  assert.equal(stored.estado, 'pendiente');
+});

@@ -188,4 +188,24 @@ export const api = {
     request<Alumno[]>(
       `/padres/hijos?email=${encodeURIComponent(email)}${usuarioId ? `&usuario_id=${usuarioId}` : ''}`,
     ),
+  getFacturas: (filtros: { alumno_id?: number; estado?: string; desde?: string; hasta?: string }) => {
+    const query = new URLSearchParams();
+    if (filtros.alumno_id) query.set('alumno_id', String(filtros.alumno_id));
+    if (filtros.estado) query.set('estado', filtros.estado);
+    if (filtros.desde) query.set('desde', filtros.desde);
+    if (filtros.hasta) query.set('hasta', filtros.hasta);
+    const qs = query.toString();
+    return request<{ id: number; numero_factura: string; periodo: string; total: number; saldo_pendiente: number; estado: string; fecha_vencimiento: string }[]>(`/facturas${qs ? `?${qs}` : ''}`);
+  },
+  getFactura: (id: number) =>
+    request<{ id: number; items: { descripcion: string; monto: number }[] }>(`/facturas/${id}`),
+  getPagosAlumno: (alumnoId: number) =>
+    request<{ comprobantes: { id: number; estado: string }[]; recibos: { id: number }[] }>(
+      `/pagos/alumno/${alumnoId}`,
+    ),
+  generarPeriodo: (periodo: string) =>
+    post<{ periodo: string; creadas: number; omitidas: number }, { periodo: string }>(
+      '/facturas/generar-periodo',
+      { periodo },
+    ),
 };

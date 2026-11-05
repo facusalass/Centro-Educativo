@@ -6,6 +6,7 @@ import { registerAcademic } from './academic.js';
 import { registerFamilyRoutes } from './families.js';
 import { registerAttendanceRoutes } from './attendance.js';
 import { registerEnrollmentRoutes } from './enrollment-routes.js';
+import { registerBillingRoutes } from './billing.js';
 import { registerNotificationRoutes } from './notification-routes.js';
 import { deliverPending } from './notifications.js';
 
@@ -26,5 +27,6 @@ export function registerCore(app: Express) {
   registerFamilyRoutes(app);
   registerAttendanceRoutes(app);
   registerEnrollmentRoutes(app);
+  registerBillingRoutes(app);
   registerNotificationRoutes(app);
 }

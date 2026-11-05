@@ -235,6 +235,20 @@ export function installSecurity(app: Express) {
         req.user.referencia_id === Number(teacherReport[1])
       )
         return next();
+      if (req.user.rol === 'padre' && req.method === 'GET' && req.path === '/api/facturas')
+        return next();
+      if (
+        req.user.rol === 'padre' &&
+        req.method === 'GET' &&
+        /^\/api\/facturas\/\d+$/.test(req.path)
+      )
+        return next();
+      if (
+        req.user.rol === 'padre' &&
+        req.method === 'GET' &&
+        /^\/api\/pagos\/alumno\/\d+$/.test(req.path)
+      )
+        return next();
       if (
         req.user.rol === 'docente' &&
         ((['/api/alumnos', '/api/asignaciones-docentes'].includes(req.path) &&

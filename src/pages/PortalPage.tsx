@@ -18,6 +18,7 @@ import { DocenteDashboard } from '../components/DocenteDashboard';
 import { AcademicPanel } from '../components/AcademicPanel';
 import { AsistenciasSection } from '../components/AsistenciasSection';
 import { FamilyGrades } from '../components/portal/FamilyGrades';
+import { StudentFeesPanel } from '../components/portal/StudentFeesPanel';
 import { PasswordForm } from '../components/portal/PasswordForm';
 import { Button } from '../components/Button';
 import { LoginPage } from './LoginPage';
@@ -43,6 +44,7 @@ export function PortalPage() {
         : user.rol === 'alumno'
           ? 'Mi legajo y actividades'
           : 'Mi actividad',
+    cuotas: 'Cuotas',
     evaluaciones: 'Evaluaciones',
     novedades: 'Novedades',
     seguridad: 'Mi cuenta',
@@ -55,6 +57,7 @@ export function PortalPage() {
     user.rol === 'padre'
       ? [
           { key: 'inicio', label: 'Inicio', icon: Home },
+          { key: 'cuotas', label: 'Cuotas', icon: GraduationCap },
           { key: 'evaluaciones', label: 'Evaluaciones', icon: GraduationCap },
           { key: 'novedades', label: 'Novedades', icon: Bell },
           { key: 'seguridad', label: 'Cuenta', icon: Settings },
@@ -62,6 +65,7 @@ export function PortalPage() {
       : user.rol === 'alumno'
         ? [
             { key: 'inicio', label: 'Mi perfil', icon: UserRound },
+            { key: 'cuotas', label: 'Cuotas', icon: GraduationCap },
             { key: 'evaluaciones', label: 'Evaluaciones', icon: GraduationCap },
             { key: 'novedades', label: 'Novedades', icon: Bell },
             { key: 'seguridad', label: 'Cuenta', icon: Settings },
@@ -115,6 +119,14 @@ export function PortalPage() {
             <h2>Bienvenido/a, {user.nombre}</h2>
             <p>Consultá las evaluaciones y novedades desde las secciones del portal.</p>
           </section>
+        ))}
+      {tab === 'cuotas' &&
+        (user.rol === 'padre' ? (
+          <StudentFeesPanel />
+        ) : user.rol === 'alumno' && user.referencia_id ? (
+          <StudentFeesPanel alumnoIdFijo={user.referencia_id} />
+        ) : (
+          <Feedback>Tu perfil no tiene cuotas asignadas.</Feedback>
         ))}
       {tab === 'evaluaciones' &&
         (user.rol === 'padre' ? (
