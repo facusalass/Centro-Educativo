@@ -2,7 +2,7 @@ import type { Express, Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import { rateLimit } from 'express-rate-limit';
-import { randomBytes } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import { db } from '../database.js';
 import { assert, HttpError } from './errors.js';
 import { objectBody } from './validation.js';
@@ -86,6 +86,8 @@ const publicGets = new Set([
 const publicPosts = new Set([
   '/api/auth/login',
   '/api/login-demo',
+  '/api/auth/forgot-password',
+  '/api/auth/reset-password',
   '/api/padres/registro',
   '/api/contacto',
   '/api/solicitudes-inscripcion',
@@ -116,6 +118,17 @@ export function installSecurity(app: Express) {
       windowMs: 60000,
       limit: 60,
       message: { error: 'Esperá un momento antes de volver a enviar.' },
+    }),
+  );
+  // Misma disciplina que el login: la recuperación es pública pero acotada por IP.
+  app.use(
+    ['/api/auth/forgot-password', '/api/auth/reset-password'],
+    rateLimit({
+      windowMs: 15 * 60 * 1000,
+      limit: 20,
+      standardHeaders: 'draft-8',
+      legacyHeaders: false,
+      message: { error: 'Demasiados intentos de recuperación. Volvé a intentar en 15 minutos.' },
     }),
   );
   app.use(async (req: Request, _res: Response, next: NextFunction) => {
@@ -275,7 +288,91 @@ export function installSecurity(app: Express) {
     clearSession(res);
     res.json({ ok: true });
   });
+  // HU-04 (RF-01.3): la respuesta es siempre neutra para no revelar si el email existe;
+  // el token crudo viaja solo dentro del correo, la base conserva únicamente su hash.
+  // El token es de un solo uso, expira y al restablecer se revocan las sesiones activas.
+  const resetLinkOrigin = process.env.FRONTEND_URL || 'http://localhost:5173';
+  const neutralRecovery = {
+    ok: true,
+    mensaje: 'Si el email está registrado, te enviamos un enlace para restablecer la contraseña. Revisá tu casilla.',
+  };
+  const invalidResetLink = 'El enlace de recuperación no es válido o ya expiró. Pedí uno nuevo.';
+  app.post('/api/auth/forgot-password', async (req: Request, res: Response) => {
+    const input = objectBody(req.body);
+    const email = String(input.email ?? '')
+      .trim()
+      .toLowerCase();
+    // Solo rechazamos cuerpos mal formados: el formato del email nunca decide la respuesta.
+    assert(typeof input.email === 'string', 400, 'Ingresá un email válido.');
+    const user = await db.get(
+      "SELECT * FROM usuarios_acceso WHERE LOWER(email) = ? AND estado = 'activo'",
+      [email],
+    );
+    if (user) {
+      const raw = randomBytes(32).toString('base64url');
+      await db.transaction(async () => {
+        await db.run('UPDATE password_resets SET usado = 1 WHERE usuario_id = ? AND usado = 0', [
+          user.id,
+        ]);
+        await db.insert('password_resets', {
+          usuario_id: user.id,
+          token_hash: sha256(raw),
+          expira_en: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
+        });
+        await db.insert('notificaciones', {
+          usuario_id: user.id,
+          titulo: 'Recuperación de contraseña',
+          mensaje: `Hola ${user.nombre}: recibimos una solicitud para restablecer tu contraseña. Ingresá al siguiente enlace durante los próximos 30 minutos: ${resetLinkOrigin}/login?token=${raw}. Si no fuiste vos, ignorá este mensaje.`,
+          email: user.email,
+          fecha: new Date().toISOString(),
+        });
+      });
+    }
+    res.json(neutralRecovery);
+  });
+  app.post('/api/auth/reset-password', async (req: Request, res: Response) => {
+    const input = objectBody(req.body);
+    const token = String(input.token ?? '');
+    // La contraseña se valida antes del enlace para que un token falso no quede distinguido.
+    const password = validatePassword(input.password);
+    const row = token
+      ? await db.get(
+          `SELECT r.id, r.usuario_id, r.usado, r.expira_en, u.estado
+             FROM password_resets r JOIN usuarios_acceso u ON u.id = r.usuario_id
+            WHERE r.token_hash = ?`,
+          [sha256(token)],
+        )
+      : undefined;
+    assert(
+      row &&
+        Number(row.usado) === 0 &&
+        new Date(row.expira_en).getTime() > Date.now() &&
+        row.estado === 'activo',
+      400,
+      invalidResetLink,
+    );
+    await db.transaction(async () => {
+      // El guardia hace el token de un solo uso incluso con solicitudes simultáneas.
+      assert(
+        (await db.run('UPDATE password_resets SET usado = 1 WHERE id = ? AND usado = 0', [row.id]))
+          .changes === 1,
+        400,
+        invalidResetLink,
+      );
+      await db.run(
+        'UPDATE usuarios_acceso SET password_hash = ?, session_version = session_version + 1 WHERE id = ?',
+        [await bcrypt.hash(password, 12), row.usuario_id],
+      );
+    });
+    res.json({
+      ok: true,
+      mensaje: 'Actualizamos tu contraseña. Ya podés iniciar sesión con la nueva.',
+    });
+  });
 }
+
+const sha256 = (value: string) => createHash('sha256').update(value).digest('hex');
+
 export function validatePassword(value: unknown) {
   assert(
     typeof value === 'string' && value.length >= 10 && Buffer.byteLength(value, 'utf8') <= 72,

@@ -5,11 +5,16 @@ import { resolve, join } from 'node:path';
 import { once } from 'node:events';
 import net from 'node:net';
 import type { Server } from 'node:http';
+import { createHash } from 'node:crypto';
 
 let server: Server, db: any, base: string, dir: string;
 let admin: string, parent: string, otherParent: string, teacher: string;
 let childId: number, otherChild: number;
 const password = 'Prueba-Segura-2027';
+// HU-04: cuenta de recuperación y token crudo extraído del correo en la cola.
+const sha256 = (value: string) => createHash('sha256').update(value).digest('hex');
+let recoveryUserId = 0;
+let recoveryToken = '';
 async function api(path: string, cookie = '', method = 'GET', body?: unknown) {
   const response = await fetch(base + path, {
     method,
@@ -794,6 +799,144 @@ test('un fallo de base de datos no se interpreta como una sesión inválida', as
 test('logout revoca el token y no permite reutilizarlo', async () => {
   assert.equal((await api('/auth/logout', parent, 'POST')).status, 200);
   assert.equal((await api('/auth/me', parent)).status, 401);
+});
+
+test('la recuperación de contraseña responde igual sin revelar si el email existe', async () => {
+  const created = await api('/padres/registro', '', 'POST', {
+    email: 'recupero@test.com',
+    password,
+    nombre_padre: 'Recupera Clave',
+    nombre_hijo: 'Hijo Recupera',
+    apellido_hijo: 'Tres',
+    dni_hijo: '57777333',
+    curso_id: 2,
+  });
+  assert.equal(created.status, 201, JSON.stringify(created.data));
+  recoveryUserId = created.data.usuario.id;
+  const existing = await api('/auth/forgot-password', '', 'POST', {
+    email: 'recupero@test.com',
+  });
+  const unknown = await api('/auth/forgot-password', '', 'POST', {
+    email: 'nadie@desconocido.com',
+  });
+  assert.equal(existing.status, 200);
+  assert.equal(unknown.status, 200);
+  assert.deepEqual(unknown.data, existing.data);
+  assert.match(existing.data.mensaje, /está registrado/);
+  for (const invalid of [undefined, 'no-es-un-email'])
+    assert.equal(
+      (await api('/auth/forgot-password', '', 'POST', { email: invalid })).status,
+      invalid === undefined ? 400 : 200,
+    );
+});
+
+test('la recuperación genera un token de un solo uso y solo avisa al usuario existente', async () => {
+  const countsBefore = {
+    tokens: Number((await db.get('SELECT COUNT(*) AS total FROM password_resets')).total),
+    avisos: Number(
+      (
+        await db.get(
+          "SELECT COUNT(*) AS total FROM notificaciones WHERE titulo = 'Recuperación de contraseña'",
+        )
+      ).total,
+    ),
+  };
+  // Un email desconocido no toca la base: ni tokens ni avisos.
+  await api('/auth/forgot-password', '', 'POST', { email: 'nadie@desconocido.com' });
+  const afterUnknown = await db.get('SELECT COUNT(*) AS total FROM password_resets');
+  assert.equal(Number(afterUnknown.total), countsBefore.tokens);
+  const avisosTrasDesconocido = await db.get(
+    "SELECT COUNT(*) AS total FROM notificaciones WHERE titulo = 'Recuperación de contraseña'",
+  );
+  assert.equal(Number(avisosTrasDesconocido.total), countsBefore.avisos);
+  // Un email existente crea un token con hash y aviso, e invalida los previos sin usar.
+  await api('/auth/forgot-password', '', 'POST', { email: 'recupero@test.com' });
+  await api('/auth/forgot-password', '', 'POST', { email: 'recupero@test.com' });
+  const tokens = await db.all(
+    'SELECT * FROM password_resets WHERE usuario_id = ? ORDER BY id DESC',
+    [recoveryUserId],
+  );
+  assert.equal(tokens.length, countsBefore.tokens + 2);
+  assert.ok(tokens.filter((t: any) => Number(t.usado) === 0).length === 1, 'queda un solo token vivo');
+  const row = tokens[0];
+  assert.match(row.token_hash, /^[a-f0-9]{64}$/);
+  assert.ok(new Date(row.expira_en).getTime() > Date.now());
+  const avisos = await db.all(
+    "SELECT * FROM notificaciones WHERE usuario_id = ? AND titulo = 'Recuperación de contraseña' ORDER BY id DESC",
+    [recoveryUserId],
+  );
+  assert.equal(avisos.length, countsBefore.avisos + 2);
+  const raw = /token=([A-Za-z0-9_-]+)/.exec(avisos[0].mensaje);
+  assert.ok(raw, 'el correo contiene el enlace con el token crudo');
+  recoveryToken = raw![1];
+  assert.ok(recoveryToken.length >= 43, 'token de 32 bytes url-safe');
+});
+
+test('el restablecimiento cambia la clave, revoca sesiones y el token no se reutiliza', async () => {
+  const oldSession = (
+    await api('/auth/login', '', 'POST', { email: 'recupero@test.com', password })
+  ).cookie;
+  assert.ok(oldSession);
+  const nueva = 'Restablecida-2027';
+  // Contraseña inválida: mismo esquema de validación que el cambio de contraseña.
+  for (const badPassword of ['corta', 123456789012, 'á'.repeat(40)]) {
+    const rejected = await api('/auth/reset-password', '', 'POST', {
+      token: recoveryToken,
+      password: badPassword,
+    });
+    assert.equal(rejected.status, 400);
+    assert.match(rejected.data.error, /La contraseña debe tener entre 10 y 72 caracteres/);
+  }
+  // El token sobrevive a los intentos inválidos.
+  const missing = await api('/auth/reset-password', '', 'POST', { password: nueva });
+  assert.equal(missing.status, 400);
+  const reset = await api('/auth/reset-password', '', 'POST', {
+    token: recoveryToken,
+    password: nueva,
+  });
+  assert.equal(reset.status, 200, JSON.stringify(reset.data));
+  assert.equal((await api('/auth/me', oldSession)).status, 401);
+  assert.equal(
+    (await api('/auth/login', '', 'POST', { email: 'recupero@test.com', password })).status,
+    401,
+  );
+  const relogin = await api('/auth/login', '', 'POST', {
+    email: 'recupero@test.com',
+    password: nueva,
+  });
+  assert.equal(relogin.status, 200);
+  assert.equal((await api('/auth/me', relogin.cookie)).status, 200);
+  const reused = await api('/auth/reset-password', '', 'POST', {
+    token: recoveryToken,
+    password: nueva,
+  });
+  assert.equal(reused.status, 400);
+  assert.match(reused.data.error, /no es válido o ya expiró/);
+});
+
+test('un enlace vencido o desconocido responde igual y no toca la cuenta', async () => {
+  await db.insert('password_resets', {
+    usuario_id: recoveryUserId,
+    token_hash: sha256('enlace-vencido-educar'),
+    expira_en: new Date(Date.now() - 60000).toISOString(),
+  });
+  const expired = await api('/auth/reset-password', '', 'POST', {
+    token: 'enlace-vencido-educar',
+    password,
+  });
+  const unknown = await api('/auth/reset-password', '', 'POST', {
+    token: 'enlace-desconocido-educar',
+    password,
+  });
+  assert.equal(expired.status, 400);
+  assert.equal(unknown.status, 400);
+  assert.deepEqual(unknown.data, expired.data);
+  // La contraseña actual sigue siendo la establecida en el flujo válido.
+  assert.equal(
+    (await api('/auth/login', '', 'POST', { email: 'recupero@test.com', password: 'Restablecida-2027' }))
+      .status,
+    200,
+  );
 });
 
 test('el acceso limita intentos repetidos de autenticación', async () => {

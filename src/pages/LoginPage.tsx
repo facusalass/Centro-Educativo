@@ -7,11 +7,29 @@ import '../components/portal/mobile.css';
 import { Feedback } from '../components/PortalShell';
 import { Button } from '../components/Button';
 import type { Curso, UsuarioAcceso } from '../types';
+// HU-04 (RF-01.3): la vista de restablecimiento se abre desde el enlace del email
+// con el token crudo en la query (?token=...). El token nunca viaja en el body de
+// la vista de login ni queda guardado en el estado compartido.
+const initialResetToken =
+  typeof window === 'undefined' ? '' : (new URLSearchParams(window.location.search).get('token') ?? '');
+
+type View = 'login' | 'forgot' | 'reset';
+
 export function LoginPage() {
   const { setUser } = useSession();
   const [register, setRegister] = useState(false),
     [pending, setPending] = useState(false),
     [error, setError] = useState('');
+  const [view, setView] = useState<View>(initialResetToken ? 'reset' : 'login');
+  const resetToken = initialResetToken;
+  const [resetPassword, setResetPassword] = useState('');
+  const [resetPending, setResetPending] = useState(false);
+  const [resetError, setResetError] = useState('');
+  const [resetDone, setResetDone] = useState('');
+  const [recoverEmail, setRecoverEmail] = useState('');
+  const [recoverPending, setRecoverPending] = useState(false);
+  const [recoverError, setRecoverError] = useState('');
+  const [recoverDone, setRecoverDone] = useState('');
   const [email, setEmail] = useState(''),
     [password, setPassword] = useState(''),
     [courses, setCourses] = useState<Curso[]>([]);
@@ -60,6 +78,47 @@ export function LoginPage() {
     }
   };
 
+  const submitRecovery = async (event: FormEvent) => {
+    event.preventDefault();
+    setRecoverPending(true);
+    setRecoverError('');
+    try {
+      await request<{ ok: boolean }>('/auth/forgot-password', {
+        method: 'POST',
+        body: JSON.stringify({ email: recoverEmail }),
+      });
+      // Respuesta neutra: nunca confirma si el email está o no registrado.
+      setRecoverDone(
+        'Si el email está registrado, te enviamos un enlace para restablecer la contraseña. Revisá tu casilla.',
+      );
+    } catch (e) {
+      setRecoverError((e as Error).message);
+    } finally {
+      setRecoverPending(false);
+    }
+  };
+
+  const submitReset = async (event: FormEvent) => {
+    event.preventDefault();
+    setResetPending(true);
+    setResetError('');
+    try {
+      await request<{ ok: boolean }>('/auth/reset-password', {
+        method: 'POST',
+        body: JSON.stringify({ token: resetToken, password: resetPassword }),
+      });
+      setResetDone('Actualizamos tu contraseña. Ya podés iniciar sesión con la nueva.');
+    } catch (e) {
+      setResetError((e as Error).message);
+    } finally {
+      setResetPending(false);
+    }
+  };
+
+  const backToLogin = () => {
+    if (resetToken) window.location.replace('/login');
+  };
+
   return (
     <div className="internal-page">
       <header className="internal-header">
@@ -88,6 +147,7 @@ export function LoginPage() {
             <li>Calificaciones y comunicaciones</li>
           </ul>
         </section>
+        {view === 'login' && (
         <form className="form-card login-card" onSubmit={submit}>
           <KeyRound size={30} />
           <h2>{register ? 'Crear cuenta familiar' : 'Iniciar sesión'}</h2>
@@ -190,11 +250,105 @@ export function LoginPage() {
           >
             {register ? 'Ya tengo una cuenta' : 'Soy una familia nueva: crear cuenta'}
           </button>
-          <small>
-            Si necesitás vincular un alumno ya registrado o recuperar el acceso, contactá a
-            secretaría.
-          </small>
+          <button
+            className="text-button"
+            type="button"
+            onClick={() => {
+              setView('forgot');
+              setError('');
+            }}
+          >
+            ¿Olvidaste tu contraseña?
+          </button>
+          <small>Si necesitás vincular un alumno ya registrado, contactá a secretaría.</small>
         </form>
+      )}
+      {view === 'forgot' && (
+        <form className="form-card login-card" onSubmit={submitRecovery}>
+          <KeyRound size={30} />
+          <h2>Recuperar contraseña</h2>
+          <Feedback error>{recoverError}</Feedback>
+          {recoverDone ? (
+            <>
+              <Feedback>{recoverDone}</Feedback>
+              <Button type="button" onClick={() => setView('login')}>
+                Volver a iniciar sesión
+              </Button>
+            </>
+          ) : (
+            <>
+              <Feedback>
+                Ingresá el email de tu cuenta y te enviaremos un enlace para restablecer la
+                contraseña (válido durante 30 minutos).
+              </Feedback>
+              <label>
+                Email
+                <input
+                  required
+                  type="email"
+                  autoComplete="username"
+                  value={recoverEmail}
+                  onChange={(e) => setRecoverEmail(e.target.value)}
+                />
+              </label>
+              <Button disabled={recoverPending} type="submit">
+                {recoverPending ? 'Enviando…' : 'Enviar enlace de recuperación'}
+              </Button>
+              <button
+                className="text-button"
+                type="button"
+                onClick={() => setView('login')}
+              >
+                Volver a iniciar sesión
+              </button>
+            </>
+          )}
+        </form>
+      )}
+      {view === 'reset' && (
+        <form className="form-card login-card" onSubmit={submitReset}>
+          <KeyRound size={30} />
+          <h2>Nueva contraseña</h2>
+          <Feedback error>{resetError}</Feedback>
+          {resetDone ? (
+            <>
+              <Feedback>{resetDone}</Feedback>
+              <Button type="button" onClick={backToLogin}>
+                Iniciar sesión
+              </Button>
+            </>
+          ) : (
+            <>
+              <Feedback>Elegí tu nueva contraseña. Debe tener entre 10 y 72 caracteres.</Feedback>
+              <label>
+                Nueva contraseña
+                <input
+                  required
+                  type="password"
+                  minLength={10}
+                  maxLength={72}
+                  autoComplete="new-password"
+                  value={resetPassword}
+                  onChange={(e) => setResetPassword(e.target.value)}
+                />
+              </label>
+              <Button disabled={resetPending} type="submit">
+                {resetPending ? 'Guardando…' : 'Actualizar contraseña'}
+              </Button>
+              <button
+                className="text-button"
+                type="button"
+                onClick={() => {
+                  setView('forgot');
+                  setResetError('');
+                }}
+              >
+                Pedir un enlace nuevo
+              </button>
+            </>
+          )}
+        </form>
+      )}
       </main>
     </div>
   );
