@@ -235,6 +235,66 @@ export type Curso = {
   descripcion: string;
 };
 
+// ===== Reportes financieros (HU-22 a HU-26) =====
+export type ReporteIngresosPeriodo = {
+  desde: string | null;
+  hasta: string | null;
+  cantidad: number;
+  total: number;
+};
+
+export type AlumnoReportePagos = {
+  id: number;
+  legajo: string | null;
+  apellido: string;
+  nombre: string;
+  nivel: string | null;
+  curso: string | null;
+  division: string | null;
+};
+
+export type FilaPagosPorPeriodo = {
+  id: number;
+  numero_factura: string;
+  periodo: string;
+  ciclo: number | null;
+  alumno: AlumnoReportePagos;
+  fecha_emision: string;
+  fecha_vencimiento: string | null;
+  total: number;
+  saldo_pendiente: number;
+  estado: string;
+};
+
+export type ReportePagosCompletos = FilaPagosPorPeriodo[];
+export type ReportePagosIncompletos = FilaPagosPorPeriodo[];
+
+export type ReportePagosPorDeporte = Array<{
+  deporte_id: number;
+  deporte: string;
+  grupos: Array<{
+    nivel: string | null;
+    dia: string | null;
+    horario: string | null;
+    profesor: string | null;
+  }>;
+  alumnos: number;
+  imputado: number;
+  pagado: number;
+  pendiente: number;
+}>;
+
+export type ReportePagosPorTransporte = Array<{
+  recorrido_id: number;
+  recorrido: string;
+  horario: string | null;
+  zona: string | null;
+  alumnos: number;
+  imputado: number;
+  pagado: number;
+  pendiente: number;
+}>;
+
 export type AsignacionDocente = {
   id: number;
   docente_id: number;

@@ -8,7 +8,25 @@ import type {
   AlumnosPorMateria,
   DocentesPorNivel,
   AlumnosPorCurso,
+  ReporteIngresosPeriodo,
+  ReportePagosCompletos,
+  ReportePagosIncompletos,
+  ReportePagosPorDeporte,
+  ReportePagosPorTransporte,
+  FilaPagosPorPeriodo,
 } from '../../types';
+
+// ===== Reportes financieros (HU-22 a HU-26) =====
+// El visor arma el CSV raspando las tablas #printable-report, por lo que las
+// filas de totales en <tfoot> también quedan incluidas en la descarga.
+function formatoMoneda(valor: number) {
+  return Number(valor ?? 0).toLocaleString('es-AR', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
+
+const estiloTotales = { fontWeight: 600 } as const;
 
 // 1. Alumnos por Curso
 export function renderAlumnosPorCurso(cursos: AlumnosPorCurso) {
@@ -719,6 +737,357 @@ export function renderReporteDocente(data: ReporteDocente) {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// 10. Ingresos por Período (HU-22)
+export function renderIngresosPeriodo(data: ReporteIngresosPeriodo) {
+  if (!data || typeof data !== 'object' || Array.isArray(data)) {
+    return <p>No hay datos de ingresos disponibles.</p>;
+  }
+
+  return (
+    <div>
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          background: '#f8fafc',
+          padding: '8px 14px',
+          borderRadius: '6px',
+          borderLeft: '4px solid var(--blue-700)',
+          marginBottom: '12px',
+        }}
+      >
+        <strong>
+          Período consultado: {data.desde || 'sin límite'} — {data.hasta || 'sin límite'}
+        </strong>
+        <span className="badge badge-blue">{data.cantidad} recibos emitidos</span>
+      </div>
+
+      <div className="report-table-wrapper">
+        <table className="report-table">
+          <thead>
+            <tr>
+              <th>Desde</th>
+              <th>Hasta</th>
+              <th>Cantidad de recibos</th>
+              <th>Ingresos totales</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>{data.desde || 'Sin límite'}</td>
+              <td>{data.hasta || 'Sin límite'}</td>
+              <td>
+                <span className="badge badge-blue">{data.cantidad}</span>
+              </td>
+              <td style={estiloTotales}>$ {formatoMoneda(data.total)}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// Totales compartidos por los reportes de pagos por factura (HU-23 y HU-24).
+function totalesFilasPagos(filas: FilaPagosPorPeriodo[]) {
+  const totalFacturado = filas.reduce((n, f) => n + Number(f.total), 0);
+  const totalSaldo = filas.reduce((n, f) => n + Number(f.saldo_pendiente), 0);
+  return { totalFacturado: round2dollars(totalFacturado), totalSaldo: round2dollars(totalSaldo) };
+}
+
+function round2dollars(n: number) {
+  return Math.round(n * 100) / 100;
+}
+
+function tablaPagosPorPeriodo(
+  filas: FilaPagosPorPeriodo[],
+  columnasSaldo: boolean,
+) {
+  const { totalFacturado, totalSaldo } = totalesFilasPagos(filas);
+  return (
+    <div className="report-table-wrapper">
+      <table className="report-table">
+        <thead>
+          <tr>
+            <th>N° Factura</th>
+            <th>Período</th>
+            <th>Ciclo</th>
+            <th>Legajo</th>
+            <th>Alumno</th>
+            <th>Curso</th>
+            <th>Fecha de emisión</th>
+            <th>Vencimiento</th>
+            <th>Total facturado</th>
+            {columnasSaldo && <th>Saldo pendiente</th>}
+            {columnasSaldo && <th>Estado</th>}
+          </tr>
+        </thead>
+        <tbody>
+          {filas.map((f) => (
+            <tr key={f.id}>
+              <td>
+                <strong>{f.numero_factura}</strong>
+              </td>
+              <td>{f.periodo}</td>
+              <td>{f.ciclo ?? '—'}</td>
+              <td>{f.alumno?.legajo || '—'}</td>
+              <td>
+                {f.alumno?.apellido}, {f.alumno?.nombre}
+              </td>
+              <td>
+                {f.alumno
+                  ? [f.alumno.nivel, f.alumno.curso, f.alumno.division].filter(Boolean).join(' ')
+                  : '—'}
+              </td>
+              <td>{String(f.fecha_emision || '—').slice(0, 10)}</td>
+              <td>{f.fecha_vencimiento || '—'}</td>
+              <td>$ {formatoMoneda(f.total)}</td>
+              {columnasSaldo && <td style={estiloTotales}>$ {formatoMoneda(f.saldo_pendiente)}</td>}
+              {columnasSaldo && (
+                <td>
+                  <span
+                    className={`badge ${f.estado === 'vencida' ? 'badge-amber' : 'badge-blue'}`}
+                  >
+                    {f.estado}
+                  </span>
+                </td>
+              )}
+            </tr>
+          ))}
+        </tbody>
+        <tfoot>
+          <tr style={estiloTotales}>
+            <td colSpan={columnasSaldo ? 8 : 8}>Totales ({filas.length} facturas)</td>
+            <td>$ {formatoMoneda(totalFacturado)}</td>
+            {columnasSaldo && <td>$ {formatoMoneda(totalSaldo)}</td>}
+            {columnasSaldo && <td></td>}
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  );
+}
+
+// 11. Pagos Completos (HU-23)
+export function renderPagosCompletos(filas: ReportePagosCompletos) {
+  if (!filas || !Array.isArray(filas)) return <p>No hay datos disponibles.</p>;
+  if (filas.length === 0) return <p>No hay pagos completos en el rango consultado.</p>;
+
+  return (
+    <div>
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          background: '#f8fafc',
+          padding: '8px 14px',
+          borderRadius: '6px',
+          borderLeft: '4px solid var(--green-600)',
+          marginBottom: '12px',
+        }}
+      >
+        <strong>Facturas con saldo cancelado</strong>
+        <span className="badge badge-green">{filas.length} facturas pagadas</span>
+      </div>
+      {tablaPagosPorPeriodo(filas, false)}
+    </div>
+  );
+}
+
+// 12. Pagos Incompletos (HU-24)
+export function renderPagosIncompletos(filas: ReportePagosIncompletos) {
+  if (!filas || !Array.isArray(filas)) return <p>No hay datos disponibles.</p>;
+  if (filas.length === 0) return <p>No hay pagos incompletos en el rango consultado.</p>;
+
+  const { totalSaldo } = totalesFilasPagos(filas);
+  const vencidas = filas.filter((f) => f.estado === 'vencida').length;
+
+  return (
+    <div>
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          background: '#f8fafc',
+          padding: '8px 14px',
+          borderRadius: '6px',
+          borderLeft: '4px solid var(--amber-500, #f59e0b)',
+          marginBottom: '12px',
+        }}
+      >
+        <strong>Facturas con saldo pendiente</strong>
+        <span className="badge badge-amber">
+          {filas.length} facturas • Deuda total: $ {formatoMoneda(totalSaldo)}
+          {vencidas > 0 ? ` • ${vencidas} vencidas` : ''}
+        </span>
+      </div>
+      {tablaPagosPorPeriodo(filas, true)}
+    </div>
+  );
+}
+
+// 13. Pagos por Deporte (HU-25)
+export function renderPagosPorDeporte(filas: ReportePagosPorDeporte) {
+  if (!filas || !Array.isArray(filas)) return <p>No hay datos disponibles.</p>;
+  if (filas.length === 0)
+    return <p>No hay pagos de deportes para los filtros seleccionados.</p>;
+
+  const totalImputado = filas.reduce((n, f) => n + Number(f.imputado), 0);
+  const totalPagado = filas.reduce((n, f) => n + Number(f.pagado), 0);
+  const totalPendiente = filas.reduce((n, f) => n + Number(f.pendiente), 0);
+
+  return (
+    <div>
+      {filas.map((f) => (
+        <div key={f.deporte_id} style={{ marginBottom: '24px' }}>
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              background: '#f8fafc',
+              padding: '8px 14px',
+              borderRadius: '6px',
+              borderLeft: '4px solid var(--green-600)',
+            }}
+          >
+            <strong>Deporte: {f.deporte}</strong>
+            <span className="badge badge-green">
+              {f.alumnos} alumnos • $ {formatoMoneda(f.pendiente)} pendiente
+            </span>
+          </div>
+
+          <div className="report-table-wrapper">
+            <table className="report-table">
+              <thead>
+                <tr>
+                  <th>Comisión</th>
+                  <th>Nivel</th>
+                  <th>Día y Horario</th>
+                  <th>Profesor</th>
+                  <th>Alumnos</th>
+                  <th>Imputado</th>
+                  <th>Pagado</th>
+                  <th>Pendiente</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(f.grupos?.length ?? 0) > 0 ? (
+                  f.grupos?.map((g, i) => (
+                    <tr key={i}>
+                      <td>Comisión {i + 1}</td>
+                      <td>{g.nivel || '—'}</td>
+                      <td>
+                        {g.dia} {g.horario}
+                      </td>
+                      <td>{g.profesor || 'Sin asignar'}</td>
+                      <td>{f.alumnos}</td>
+                      <td>$ {formatoMoneda(f.imputado)}</td>
+                      <td>$ {formatoMoneda(f.pagado)}</td>
+                      <td style={estiloTotales}>$ {formatoMoneda(f.pendiente)}</td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={8} style={{ textAlign: 'center', color: 'var(--gray-500)' }}>
+                      Sin comisiones activas vinculadas a los pagos registrados.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ))}
+      <div className="report-table-wrapper">
+        <table className="report-table">
+          <tfoot>
+            <tr style={estiloTotales}>
+              <td colSpan={5}>Totales generales</td>
+              <td>$ {formatoMoneda(round2dollars(totalImputado))}</td>
+              <td>$ {formatoMoneda(round2dollars(totalPagado))}</td>
+              <td>$ {formatoMoneda(round2dollars(totalPendiente))}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// 14. Pagos por Recorrido de Transporte (HU-26)
+export function renderPagosPorTransporte(filas: ReportePagosPorTransporte) {
+  if (!filas || !Array.isArray(filas)) return <p>No hay datos disponibles.</p>;
+  if (filas.length === 0)
+    return <p>No hay pagos de transporte para los filtros seleccionados.</p>;
+
+  const totalImputado = filas.reduce((n, f) => n + Number(f.imputado), 0);
+  const totalPagado = filas.reduce((n, f) => n + Number(f.pagado), 0);
+  const totalPendiente = filas.reduce((n, f) => n + Number(f.pendiente), 0);
+
+  return (
+    <div>
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          background: '#f8fafc',
+          padding: '8px 14px',
+          borderRadius: '6px',
+          borderLeft: '4px solid var(--blue-700)',
+          marginBottom: '12px',
+        }}
+      >
+        <strong>Pagos de transporte por recorrido</strong>
+        <span className="badge badge-blue">{filas.length} recorridos con pagos</span>
+      </div>
+
+      <div className="report-table-wrapper">
+        <table className="report-table">
+          <thead>
+            <tr>
+              <th>Recorrido</th>
+              <th>Horario</th>
+              <th>Zona</th>
+              <th>Alumnos</th>
+              <th>Imputado</th>
+              <th>Pagado</th>
+              <th>Pendiente</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filas.map((f) => (
+              <tr key={f.recorrido_id}>
+                <td>
+                  <strong>{f.recorrido}</strong>
+                </td>
+                <td>{f.horario || '—'}</td>
+                <td>{f.zona || '—'}</td>
+                <td>{f.alumnos}</td>
+                <td>$ {formatoMoneda(f.imputado)}</td>
+                <td>$ {formatoMoneda(f.pagado)}</td>
+                <td style={estiloTotales}>$ {formatoMoneda(f.pendiente)}</td>
+              </tr>
+            ))}
+          </tbody>
+          <tfoot>
+            <tr style={estiloTotales}>
+              <td colSpan={4}>Totales generales</td>
+              <td>$ {formatoMoneda(round2dollars(totalImputado))}</td>
+              <td>$ {formatoMoneda(round2dollars(totalPagado))}</td>
+              <td>$ {formatoMoneda(round2dollars(totalPendiente))}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
     </div>
   );
 }

@@ -8,7 +8,7 @@ import type { Server } from 'node:http';
 import { createHash } from 'node:crypto';
 
 let server: Server, db: any, base: string, dir: string;
-let admin: string, parent: string, otherParent: string, teacher: string;
+let admin: string, parent: string, otherParent: string, teacher: string, student = '';
 let childId: number, otherChild: number;
 const password = 'Prueba-Segura-2027';
 // HU-04: cuenta de recuperación y token crudo extraído del correo en la cola.
@@ -566,6 +566,9 @@ test('alumno autenticado consulta su propio legajo integral en modo lectura y no
   assert.equal(studentLogin.status, 200);
   assert.equal(studentLogin.data.usuario.rol, 'alumno');
   assert.equal(studentLogin.data.usuario.referencia_id, 1);
+  // Se conserva para los cruces RBAC de las tareas T05 sin volver a loguear
+  // (el limitador de login es acotado por IP).
+  student = studentLogin.cookie;
 
   const ownProfile = await api('/reportes/alumno/1', studentLogin.cookie);
   assert.equal(ownProfile.status, 200);
@@ -1282,4 +1285,206 @@ test('T04 HU-18/HU-19: rango inclusivo, borde negativo y deuda por concepto con 
   }
   const suma = Math.round(deuda2.data.facturas.reduce((n: number, f: { saldo_pendiente: number }) => n + Number(f.saldo_pendiente), 0) * 100) / 100;
   assert.equal(Number(deuda2.data.total_deuda), suma);
+});
+
+test('T05 HU-22 a HU-26: reportes financieros con datos, rango y filtros', async () => {
+  // Datos nuevos: inscripción a deporte (Basquet con arancel diferenciado) y a
+  // transporte (recorrido 1 con arancel diferenciado), y facturación de 2026-10.
+  const alumnoRow = await db.get('SELECT * FROM alumnos WHERE id = ?', [otherChild]);
+  assert.ok(alumnoRow);
+  const basquet = await db.get("SELECT id, arancel_mensual FROM deportes WHERE nombre = 'Basquet'");
+  assert.ok(basquet, 'Depende del CRUD de aranceles.');
+  const grupoId = await db.insert('grupos_deporte', {
+    deporte_id: basquet.id,
+    nivel: alumnoRow.nivel,
+    dia: 'Sábado',
+    horario: '18:00 - 19:30',
+    profesor_id: 3,
+    cupo: 10,
+  });
+  const insDeporte = await api('/inscripciones', otherParent, 'POST', {
+    alumno_id: otherChild,
+    tipo: 'deporte',
+    grupo_deporte_id: grupoId,
+  });
+  assert.equal(insDeporte.status, 201, JSON.stringify(insDeporte.data));
+  const recorridoRow = await db.get('SELECT id, arancel_mensual FROM recorridos_transporte WHERE id = 1');
+  const insTransporte = await api('/inscripciones', otherParent, 'POST', {
+    alumno_id: otherChild,
+    tipo: 'transporte',
+    recorrido_id: recorridoRow.id,
+  });
+  assert.equal(insTransporte.status, 201, JSON.stringify(insTransporte.data));
+  const periodo = '2026-10';
+  assert.equal((await api('/facturas/generar-periodo', admin, 'POST', { periodo })).status, 201);
+  const items = await db.all(
+    'SELECT fi.tipo, fi.monto, fi.monto_pagado, fi.referencia_id FROM factura_items fi JOIN facturas f ON f.id = fi.factura_id WHERE f.alumno_id = ? AND f.periodo = ?',
+    [otherChild, periodo],
+  );
+  // otherChild ya trae otros servicios del seed: el ítem de Basquet se identifica
+  // por su referencia (deporte_id) y no por ser el único ítem de deporte.
+  const deporteItem = items.find(
+    (i: { tipo: string; referencia_id: number }) =>
+      i.tipo === 'deporte' && Number(i.referencia_id) === Number(basquet.id),
+  );
+  const transporteItem = items.find((i: { tipo: string }) => i.tipo === 'transporte');
+  assert.ok(deporteItem, JSON.stringify(items));
+  assert.equal(Number(deporteItem.monto), Number(basquet.arancel_mensual));
+  assert.ok(transporteItem, JSON.stringify(items));
+  assert.equal(Number(transporteItem.monto), Number(recorridoRow.arancel_mensual));
+
+  // HU-22: ingresos por período a partir de recibos (monto_total).
+  const hoy = new Date().toISOString().slice(0, 10);
+  const ayer = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
+  const ingresos = await api('/reportes/ingresos-periodo?desde=2000-01-01&hasta=2999-12-31', admin);
+  assert.equal(ingresos.status, 200, JSON.stringify(ingresos.data));
+  assert.ok(ingresos.data.cantidad >= 2, JSON.stringify(ingresos.data));
+  assert.ok(ingresos.data.total > 0);
+  // Los recibos aprobados son de hoy: el rango que termina ayer no captura nada.
+  const ingresosAyer = await api(`/reportes/ingresos-periodo?desde=2000-01-01&hasta=${ayer}`, admin);
+  assert.equal(ingresosAyer.status, 200);
+  assert.equal(ingresosAyer.data.cantidad, 0, JSON.stringify(ingresosAyer.data));
+  assert.equal(ingresosAyer.data.total, 0);
+
+  // HU-23: pagos completos (saldo_pendiente = 0).
+  const completos = await api('/reportes/pagos-completos', admin);
+  assert.equal(completos.status, 200, JSON.stringify(completos.data));
+  assert.ok(Array.isArray(completos.data));
+  for (const f of completos.data) {
+    assert.equal(Number(f.saldo_pendiente), 0);
+    assert.ok(f.numero_factura && f.alumno?.id && Number(f.total) > 0, JSON.stringify(f));
+  }
+  const completosAyer = await api(`/reportes/pagos-completos?desde=2000-01-01&hasta=${ayer}`, admin);
+  assert.equal(completosAyer.status, 200);
+  assert.equal(completosAyer.data.length, 0, JSON.stringify(completosAyer.data));
+
+  // HU-24: pagos incompletos con saldo y estado derivado (vencida en lectura).
+  const incompletos = await api('/reportes/pagos-incompletos', admin);
+  assert.equal(incompletos.status, 200, JSON.stringify(incompletos.data));
+  assert.ok(
+    Array.isArray(incompletos.data) &&
+      incompletos.data.some(
+        (f: { periodo: string; alumno: { id: number } }) =>
+          f.periodo === '2026-03' && f.alumno.id === otherChild,
+      ),
+    JSON.stringify(incompletos.data),
+  );
+  for (const f of incompletos.data) {
+    assert.ok(Number(f.saldo_pendiente) > 0, JSON.stringify(f));
+    assert.ok(
+      ['pendiente', 'parcial', 'en_revision', 'pagada', 'vencida'].includes(f.estado),
+      JSON.stringify(f),
+    );
+  }
+  // Filtros de ciclo (debe coincidir con el AAAA del período) y de curso.
+  const ciclo2026 = await api('/reportes/pagos-incompletos?ciclo=2026', admin);
+  assert.equal(ciclo2026.status, 200);
+  assert.equal(ciclo2026.data.length, incompletos.data.length, JSON.stringify(ciclo2026.data));
+  const ciclo1999 = await api('/reportes/pagos-incompletos?ciclo=1999', admin);
+  assert.equal(ciclo1999.status, 200);
+  assert.equal(ciclo1999.data.length, 0);
+  const porCurso = await api(`/reportes/pagos-incompletos?curso_id=${alumnoRow.curso_id}`, admin);
+  assert.equal(porCurso.status, 200);
+  assert.ok(
+    porCurso.data.some((f: { alumno: { id: number } }) => f.alumno.id === otherChild),
+    JSON.stringify(porCurso.data),
+  );
+
+  // HU-25: pagos por deporte con filtros combinables (nivel/horario/profesor).
+  const porDeporte = await api('/reportes/pagos-por-deporte', admin);
+  assert.equal(porDeporte.status, 200, JSON.stringify(porDeporte.data));
+  const basquetRow = porDeporte.data.find((r: { deporte: string }) => r.deporte === 'Basquet');
+  assert.ok(basquetRow, JSON.stringify(porDeporte.data));
+  assert.equal(Number(basquetRow.imputado), Number(basquet.arancel_mensual));
+  assert.equal(Number(basquetRow.pagado), 0);
+  assert.equal(Number(basquetRow.pendiente), Number(basquet.arancel_mensual));
+  assert.ok(
+    basquetRow.grupos.some(
+      (g: { nivel: string; dia: string; horario: string; profesor: string | null }) =>
+        g.nivel === alumnoRow.nivel && g.dia === 'Sábado' && g.horario === '18:00 - 19:30' && g.profesor,
+    ),
+    JSON.stringify(basquetRow.grupos),
+  );
+  const filtroCompuesto = await api(
+    `/reportes/pagos-por-deporte?deporte_id=${basquet.id}&nivel=${encodeURIComponent(alumnoRow.nivel)}&horario=${encodeURIComponent('18:00 - 19:30')}&profesor_id=3`,
+    admin,
+  );
+  assert.equal(filtroCompuesto.status, 200, JSON.stringify(filtroCompuesto.data));
+  assert.ok(filtroCompuesto.data.some((r: { deporte: string }) => r.deporte === 'Basquet'));
+  const nivelAjeno = await api(
+    `/reportes/pagos-por-deporte?nivel=${encodeURIComponent('Nivel Inexistente')}`,
+    admin,
+  );
+  assert.equal(nivelAjeno.status, 200);
+  assert.equal(nivelAjeno.data.filter((r: { deporte: string }) => r.deporte === 'Basquet').length, 0);
+  const profesorAjeno = await api('/reportes/pagos-por-deporte?profesor_id=99999', admin);
+  assert.equal(profesorAjeno.status, 200);
+  assert.equal(profesorAjeno.data.length, 0);
+  const deportesRangoAyer = await api(`/reportes/pagos-por-deporte?hasta=${ayer}`, admin);
+  assert.equal(deportesRangoAyer.status, 200);
+  assert.equal(deportesRangoAyer.data.length, 0, JSON.stringify(deportesRangoAyer.data));
+
+  // HU-26: pagos por recorrido de transporte.
+  const porTransporte = await api('/reportes/pagos-por-transporte', admin);
+  assert.equal(porTransporte.status, 200, JSON.stringify(porTransporte.data));
+  const recRow = porTransporte.data.find(
+    (r: { recorrido_id: number }) => r.recorrido_id === Number(recorridoRow.id),
+  );
+  assert.ok(recRow, JSON.stringify(porTransporte.data));
+  assert.ok(Number(recRow.imputado) >= Number(recorridoRow.arancel_mensual));
+  for (const r of porTransporte.data) {
+    assert.ok(
+      Math.abs(Number(r.imputado) - Number(r.pagado) - Number(r.pendiente)) < 0.005,
+      JSON.stringify(r),
+    );
+  }
+  const filtroRecorrido = await api(
+    `/reportes/pagos-por-transporte?recorrido_id=${recorridoRow.id}`,
+    admin,
+  );
+  assert.ok(
+    filtroRecorrido.data.every(
+      (r: { recorrido_id: number }) => r.recorrido_id === Number(recorridoRow.id),
+    ),
+  );
+  const transporteRangoAyer = await api(`/reportes/pagos-por-transporte?hasta=${ayer}`, admin);
+  assert.equal(transporteRangoAyer.status, 200);
+  assert.equal(transporteRangoAyer.data.length, 0);
+
+  // La respuesta queda como JSON serializable: el CSV del visor se arma desde
+  // el DOM de las tablas (#printable-report), nunca desde otra fuente.
+  assert.deepEqual(JSON.parse(JSON.stringify(ingresos.data)), ingresos.data);
+  assert.deepEqual(JSON.parse(JSON.stringify(completos.data)), completos.data);
+  assert.deepEqual(JSON.parse(JSON.stringify(porDeporte.data)), porDeporte.data);
+  assert.deepEqual(JSON.parse(JSON.stringify(porTransporte.data)), porTransporte.data);
+});
+
+test('T05: RBAC y validación de parámetros en los reportes financieros', async () => {
+  // Cookie de alumno guardada por el test de legajo integral (no re-loguear:
+  // el limitador de login es acotado por IP).
+  const studentLogin = student;
+  assert.ok(studentLogin);
+  const rutas = [
+    '/reportes/ingresos-periodo',
+    '/reportes/pagos-completos',
+    '/reportes/pagos-incompletos',
+    '/reportes/pagos-por-deporte',
+    '/reportes/pagos-por-transporte',
+  ];
+  for (const ruta of rutas) {
+    assert.equal((await api(ruta)).status, 401, `anónimo: ${ruta}`);
+    assert.equal((await api(ruta, otherParent)).status, 403, `padre: ${ruta}`);
+    assert.equal((await api(ruta, studentLogin)).status, 403, `alumno: ${ruta}`);
+  }
+  // Parámetros inválidos → 400 con mensaje en español.
+  assert.equal((await api('/reportes/ingresos-periodo?desde=ayer', admin)).status, 400);
+  assert.equal((await api('/reportes/pagos-completos?hasta=31-12-2026', admin)).status, 400);
+  assert.equal((await api('/reportes/pagos-incompletos?desde=x', admin)).status, 400);
+  assert.equal((await api('/reportes/pagos-incompletos?ciclo=x2026', admin)).status, 400);
+  assert.equal((await api('/reportes/pagos-incompletos?curso_id=abc', admin)).status, 400);
+  assert.equal((await api('/reportes/pagos-por-deporte?deporte_id=abc', admin)).status, 400);
+  assert.equal((await api('/reportes/pagos-por-deporte?profesor_id=abc', admin)).status, 400);
+  assert.equal((await api('/reportes/pagos-por-deporte?data=x&desde=2026-01-01&hasta=x', admin)).status, 400);
+  assert.equal((await api('/reportes/pagos-por-transporte?recorrido_id=abc', admin)).status, 400);
+  assert.equal((await api('/reportes/pagos-por-transporte?hasta=x', admin)).status, 400);
 });

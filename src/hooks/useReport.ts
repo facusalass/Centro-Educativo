@@ -1,5 +1,10 @@
 import { useEffect, useState } from 'react';
-import { fetchReport, isPersonalReport, type ReportType } from '../services/reports';
+import {
+  fetchReport,
+  isPersonalReport,
+  type ReportFiltros,
+  type ReportType,
+} from '../services/reports';
 import { errorMessage } from '../services/useResource';
 
 type ReportState = { key: string } & (
@@ -9,9 +14,10 @@ type ReportState = { key: string } & (
   | { status: 'success'; data: unknown; generatedAt: string }
 );
 
-export function useReport(type: ReportType, id: string) {
+export function useReport(type: ReportType, id: string, filtros: ReportFiltros = {}) {
   const [revision, setRevision] = useState(0);
-  const key = `${type}:${id}:${revision}`;
+  // Los filtros forman parte de la clave: cambiarlos reinicia y vuelve a consultar.
+  const key = `${type}:${id}:${JSON.stringify(filtros)}:${revision}`;
   const [state, setState] = useState<ReportState>({ key, status: 'loading' });
 
   useEffect(() => {
@@ -25,7 +31,7 @@ export function useReport(type: ReportType, id: string) {
       return () => controller.abort();
     }
     setState({ key, status: 'loading' });
-    void fetchReport(type, id, controller.signal)
+    void fetchReport(type, id, controller.signal, filtros)
       .then((data) => {
         if (!controller.signal.aborted)
           setState({

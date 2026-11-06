@@ -4,18 +4,37 @@ import { Button } from './Button';
 import { ErrorBoundary } from './ErrorBoundary';
 import { ReportContent } from './reports/ReportContent';
 import { useReport } from '../hooks/useReport';
-import { reportDefinitions, type ReportType } from '../services/reports';
-import type { Alumno, Docente } from '../types';
+import {
+  isFinancialReport,
+  reportDefinitions,
+  type ReportFiltros,
+  type ReportType,
+} from '../services/reports';
+import type {
+  Alumno,
+  Deporte,
+  Docente,
+  Curso,
+  GrupoDeporte,
+  RecorridoTransporte,
+} from '../types';
 
 interface ReportesViewerProps {
   alumnos: Alumno[];
   docentes: Docente[];
+  deportes: Deporte[];
+  grupos: GrupoDeporte[];
+  recorridos: RecorridoTransporte[];
+  cursos: Curso[];
 }
 
-export function ReportesViewer({ alumnos, docentes }: ReportesViewerProps) {
+const FILTROS_VACIOS: ReportFiltros = {};
+
+export function ReportesViewer({ alumnos, docentes, deportes, grupos, recorridos, cursos }: ReportesViewerProps) {
   const [search, setSearch] = useState('');
   const [tipo, setTipo] = useState<ReportType>('alumnos-por-curso');
   const [idConsulta, setIdConsulta] = useState<string>('');
+  const [filtros, setFiltros] = useState<ReportFiltros>(FILTROS_VACIOS);
   const [previewOpen, setPreviewOpen] = useState(false);
   const previewRef = useRef<HTMLDivElement>(null);
   const [renderErrorKey, setRenderErrorKey] = useState('');
@@ -25,7 +44,7 @@ export function ReportesViewer({ alumnos, docentes }: ReportesViewerProps) {
       : tipo === 'docente'
         ? idConsulta || String(docentes[0]?.id ?? '')
         : '';
-  const { state, reload: cargar } = useReport(tipo, targetId);
+  const { state, reload: cargar } = useReport(tipo, targetId, filtros);
   const loading = state.status === 'loading';
   const estado =
     state.status === 'success'
@@ -147,6 +166,7 @@ export function ReportesViewer({ alumnos, docentes }: ReportesViewerProps) {
               }
               setSearch('');
               setPreviewOpen(false);
+              setFiltros(FILTROS_VACIOS);
             }}
           >
             <option value="alumnos-por-curso">1. Alumnos por Curso / Grado</option>
@@ -185,6 +205,130 @@ export function ReportesViewer({ alumnos, docentes }: ReportesViewerProps) {
               {docentes.map((d) => (
                 <option key={d.id} value={d.id}>
                   {d.apellido}, {d.nombre} ({d.especialidad})
+                </option>
+              ))}
+            </select>
+          )}
+
+          {isFinancialReport(tipo) && (
+            <>
+              <input
+                type="date"
+                aria-label="Fecha desde"
+                value={filtros.desde ?? ''}
+                onChange={(e) =>
+                  setFiltros((f) => ({ ...f, desde: e.target.value }))
+                }
+              />
+              <input
+                type="date"
+                aria-label="Fecha hasta"
+                value={filtros.hasta ?? ''}
+                onChange={(e) =>
+                  setFiltros((f) => ({ ...f, hasta: e.target.value }))
+                }
+              />
+            </>
+          )}
+
+          {(tipo === 'pagos-completos' || tipo === 'pagos-incompletos') && (
+            <>
+              <input
+                aria-label="Ciclo del reporte"
+                inputMode="numeric"
+                placeholder="Ciclo (AAAA)"
+                maxLength={4}
+                value={filtros.ciclo ?? ''}
+                onChange={(e) =>
+                  setFiltros((f) => ({ ...f, ciclo: e.target.value.replace(/\D/g, '') }))
+                }
+              />
+              <select
+                aria-label="Curso de la matrícula"
+                value={filtros.curso_id ?? ''}
+                onChange={(e) =>
+                  setFiltros((f) => ({ ...f, curso_id: e.target.value }))
+                }
+              >
+                <option value="">Todos los cursos</option>
+                {cursos.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.nivel} {c.anio} "{c.division}"
+                  </option>
+                ))}
+              </select>
+            </>
+          )}
+
+          {tipo === 'pagos-por-deporte' && (
+            <>
+              <select
+                aria-label="Deporte del reporte"
+                value={filtros.deporte_id ?? ''}
+                onChange={(e) =>
+                  setFiltros((f) => ({ ...f, deporte_id: e.target.value }))
+                }
+              >
+                <option value="">Todos los deportes</option>
+                {deportes.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.nombre}
+                  </option>
+                ))}
+              </select>
+              <select
+                aria-label="Nivel del reporte"
+                value={filtros.nivel ?? ''}
+                onChange={(e) => setFiltros((f) => ({ ...f, nivel: e.target.value }))}
+              >
+                <option value="">Todos los niveles</option>
+                {[...new Set(grupos.map((g) => g.nivel).filter(Boolean))].map((nivel) => (
+                  <option key={nivel} value={nivel}>
+                    {nivel}
+                  </option>
+                ))}
+              </select>
+              <select
+                aria-label="Horario del reporte"
+                value={filtros.horario ?? ''}
+                onChange={(e) => setFiltros((f) => ({ ...f, horario: e.target.value }))}
+              >
+                <option value="">Todos los horarios</option>
+                {[...new Set(grupos.map((g) => g.horario).filter(Boolean))].map((horario) => (
+                  <option key={horario} value={horario}>
+                    {horario}
+                  </option>
+                ))}
+              </select>
+              <select
+                aria-label="Profesor del reporte"
+                value={filtros.profesor_id ?? ''}
+                onChange={(e) =>
+                  setFiltros((f) => ({ ...f, profesor_id: e.target.value }))
+                }
+              >
+                <option value="">Todos los profesores</option>
+                {docentes.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.apellido}, {d.nombre}
+                  </option>
+                ))}
+              </select>
+            </>
+          )}
+
+          {tipo === 'pagos-por-transporte' && (
+            <select
+              aria-label="Recorrido del reporte"
+              value={filtros.recorrido_id ?? ''}
+              onChange={(e) =>
+                setFiltros((f) => ({ ...f, recorrido_id: e.target.value }))
+              }
+            >
+              <option value="">Todos los recorridos</option>
+              {recorridos.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.nombre}
                 </option>
               ))}
             </select>

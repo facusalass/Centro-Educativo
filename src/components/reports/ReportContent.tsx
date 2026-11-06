@@ -8,6 +8,11 @@ import {
   renderDocentesPorNivel,
   renderReporteAlumno,
   renderReporteDocente,
+  renderIngresosPeriodo,
+  renderPagosCompletos,
+  renderPagosIncompletos,
+  renderPagosPorDeporte,
+  renderPagosPorTransporte,
 } from './renderers';
 import type { ReportType } from '../../services/reports';
 import type {
@@ -20,6 +25,11 @@ import type {
   DocentesPorNivel,
   ReporteAlumno,
   ReporteDocente,
+  ReporteIngresosPeriodo,
+  ReportePagosCompletos,
+  ReportePagosIncompletos,
+  ReportePagosPorDeporte,
+  ReportePagosPorTransporte,
 } from '../../types';
 
 // Render inside a child component so the surrounding ErrorBoundary can recover.
@@ -43,5 +53,15 @@ export function ReportContent({ type, data }: { type: ReportType; data: unknown 
       return renderReporteAlumno(data as ReporteAlumno);
     case 'docente':
       return renderReporteDocente(data as ReporteDocente);
+    case 'ingresos-periodo':
+      return renderIngresosPeriodo(data as ReporteIngresosPeriodo);
+    case 'pagos-completos':
+      return renderPagosCompletos(data as ReportePagosCompletos);
+    case 'pagos-incompletos':
+      return renderPagosIncompletos(data as ReportePagosIncompletos);
+    case 'pagos-por-deporte':
+      return renderPagosPorDeporte(data as ReportePagosPorDeporte);
+    case 'pagos-por-transporte':
+      return renderPagosPorTransporte(data as ReportePagosPorTransporte);
   }
 }

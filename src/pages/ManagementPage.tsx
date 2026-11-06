@@ -2,7 +2,14 @@ import { Communications } from '../components/management/Communications';
 import { PaymentProofsQueue } from '../components/management/PaymentProofsQueue';
 import { AuditLog } from '../components/management/AuditLog';
 import { useState } from 'react';
-import type { Alumno, Docente } from '../types';
+import type {
+  Alumno,
+  Curso,
+  Deporte,
+  Docente,
+  GrupoDeporte,
+  RecorridoTransporte,
+} from '../types';
 import { RefreshCw } from 'lucide-react';
 import { useManagementData } from '../hooks/useManagementData';
 import { PortalShell, Feedback } from '../components/PortalShell';
@@ -87,6 +94,10 @@ export function ManagementPage() {
             <ReportesViewer
               alumnos={(catalog.alumnos || []) as Alumno[]}
               docentes={(catalog.docentes || []) as Docente[]}
+              deportes={(catalog.deportes || []) as Deporte[]}
+              grupos={(catalog.grupos || []) as GrupoDeporte[]}
+              recorridos={(catalog.recorridos || []) as RecorridoTransporte[]}
+              cursos={(catalog.cursos || []) as Curso[]}
             />
           )}
           {tab === 'asistencias' && <AsistenciasSection />}
