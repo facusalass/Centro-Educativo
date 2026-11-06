@@ -8,7 +8,11 @@ import type { Server } from 'node:http';
 import { createHash } from 'node:crypto';
 
 let server: Server, db: any, base: string, dir: string;
-let admin: string, parent: string, otherParent: string, teacher: string, student = '';
+let admin: string,
+  parent: string,
+  otherParent: string,
+  teacher: string,
+  student = '';
 let childId: number, otherChild: number;
 const password = 'Prueba-Segura-2027';
 // HU-04: cuenta de recuperación y token crudo extraído del correo en la cola.
@@ -43,6 +47,7 @@ before(async () => {
   process.env.SQLITE_PATH = join(dir, 'test.sqlite');
   process.env.SEED_DEMO = 'true';
   process.env.JWT_SECRET = 'test-only-secret-that-is-longer-than-32-characters';
+  process.env.CRON_SECRET = 'test-cron-secret-longer-than-32-characters';
   const { default: app } = await import('../server/index.js');
   db = (await import('../server/database.js')).db;
   server = app.listen(0, '127.0.0.1');
@@ -860,7 +865,10 @@ test('la recuperación genera un token de un solo uso y solo avisa al usuario ex
     [recoveryUserId],
   );
   assert.equal(tokens.length, countsBefore.tokens + 2);
-  assert.ok(tokens.filter((t: any) => Number(t.usado) === 0).length === 1, 'queda un solo token vivo');
+  assert.ok(
+    tokens.filter((t: any) => Number(t.usado) === 0).length === 1,
+    'queda un solo token vivo',
+  );
   const row = tokens[0];
   assert.match(row.token_hash, /^[a-f0-9]{64}$/);
   assert.ok(new Date(row.expira_en).getTime() > Date.now());
@@ -936,8 +944,12 @@ test('un enlace vencido o desconocido responde igual y no toca la cuenta', async
   assert.deepEqual(unknown.data, expired.data);
   // La contraseña actual sigue siendo la establecida en el flujo válido.
   assert.equal(
-    (await api('/auth/login', '', 'POST', { email: 'recupero@test.com', password: 'Restablecida-2027' }))
-      .status,
+    (
+      await api('/auth/login', '', 'POST', {
+        email: 'recupero@test.com',
+        password: 'Restablecida-2027',
+      })
+    ).status,
     200,
   );
 });
@@ -963,15 +975,18 @@ test('migración v5 agrega aranceles diferenciados y las tablas financieras', as
     'avisos_facturacion_log',
   ]) {
     assert.ok(
-      await db.get('SELECT name FROM sqlite_master WHERE type = ? AND name = ?', [
-        'table',
-        table,
-      ]),
+      await db.get('SELECT name FROM sqlite_master WHERE type = ? AND name = ?', ['table', table]),
       `Falta la tabla ${table}.`,
     );
   }
   const deporte = await db.get('SELECT arancel_mensual FROM deportes WHERE id = 1');
   assert.ok(deporte.arancel_mensual !== undefined && Number(deporte.arancel_mensual) >= 0);
+});
+
+test('la compuerta de arranque conoce la última migración declarada', async () => {
+  const { LATEST_SCHEMA_VERSION } = await import('../server/database.js');
+  const version = await db.get('SELECT MAX(version) AS version FROM schema_migrations');
+  assert.equal(Number(version.version), LATEST_SCHEMA_VERSION);
 });
 
 test('la cuota mensual usa aranceles diferenciados por deporte y recorrido', async () => {
@@ -1066,9 +1081,15 @@ test('T02 facturación mensual: genera período, idempotente y respeta RBAC', as
   assert.equal(retry.status, 201);
   assert.equal(retry.data.creadas, 0);
   assert.ok(retry.data.omitidas >= 2);
-  assert.equal((await api('/facturas/generar-periodo', otherParent, 'POST', { periodo })).status, 403);
+  assert.equal(
+    (await api('/facturas/generar-periodo', otherParent, 'POST', { periodo })).status,
+    403,
+  );
   assert.equal((await api('/facturas/generar-periodo', '', 'POST', { periodo })).status, 401);
-  assert.equal((await api('/facturas/generar-periodo', admin, 'POST', { periodo: '2026-13' })).status, 400);
+  assert.equal(
+    (await api('/facturas/generar-periodo', admin, 'POST', { periodo: '2026-13' })).status,
+    400,
+  );
   const list = await api(`/facturas?alumno_id=${otherChild}`, otherParent);
   assert.equal(list.status, 200, JSON.stringify(list.data));
   assert.ok(Array.isArray(list.data) && list.data.length === 1);
@@ -1090,10 +1111,16 @@ test('T02 facturación mensual: genera período, idempotente y respeta RBAC', as
 test('T02 estado vencida se deriva en lectura y no se persiste', async () => {
   const fac = await db.get('SELECT * FROM facturas ORDER BY id DESC LIMIT 1');
   assert.ok(fac);
-  await db.run("UPDATE facturas SET fecha_vencimiento = '2000-01-10', estado = 'pendiente' WHERE id = ?", [fac.id]);
+  await db.run(
+    "UPDATE facturas SET fecha_vencimiento = '2000-01-10', estado = 'pendiente' WHERE id = ?",
+    [fac.id],
+  );
   const list = await api(`/facturas?alumno_id=${fac.alumno_id}&estado=vencida`, admin);
   assert.equal(list.status, 200);
-  assert.ok(list.data.some((r) => r.id === fac.id), JSON.stringify(list.data));
+  assert.ok(
+    list.data.some((r) => r.id === fac.id),
+    JSON.stringify(list.data),
+  );
   const stored = await db.get('SELECT estado FROM facturas WHERE id = ?', [fac.id]);
   assert.equal(stored.estado, 'pendiente');
 });
@@ -1111,7 +1138,8 @@ test('T03 comprobantes: subida, validación ACID y archivo con RBAC', async () =
   const item = detail.data.items.find((it) => it.monto - it.monto_pagado > 0);
   assert.ok(item);
   const resto = Math.round((item.monto - item.monto_pagado) * 100) / 100;
-  const png1px = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+  const png1px =
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
   const badMime = await api(`/facturas/${fac.id}/comprobantes`, otherParent, 'POST', {
     item_ids: [item.id],
     archivo_nombre: 'x.txt',
@@ -1130,18 +1158,27 @@ test('T03 comprobantes: subida, validación ACID y archivo con RBAC', async () =
   });
   assert.equal(sub.status, 201, JSON.stringify(sub.data));
   const compId = sub.data.id;
-  const archivoOk = await fetch(base + `/comprobantes/${compId}/archivo`, { headers: { Cookie: otherParent } });
+  const archivoOk = await fetch(base + `/comprobantes/${compId}/archivo`, {
+    headers: { Cookie: otherParent },
+  });
   assert.equal(archivoOk.status, 200);
   assert.match(archivoOk.headers.get('content-type') || '', /image\/png/);
-  const archivoAdmin = await fetch(base + `/comprobantes/${compId}/archivo`, { headers: { Cookie: admin } });
+  const archivoAdmin = await fetch(base + `/comprobantes/${compId}/archivo`, {
+    headers: { Cookie: admin },
+  });
   assert.equal(archivoAdmin.status, 200);
   const queue = await api('/admin/comprobantes?estado=en_revision', admin);
   assert.equal(queue.status, 200);
   assert.ok(queue.data.some((r) => r.id === compId));
   assert.equal((await api('/admin/comprobantes', otherParent)).status, 403);
-  const sinMotivo = await api(`/admin/comprobantes/${compId}/validar`, admin, 'PUT', { accion: 'rechazar', motivo_rechazo: '' });
+  const sinMotivo = await api(`/admin/comprobantes/${compId}/validar`, admin, 'PUT', {
+    accion: 'rechazar',
+    motivo_rechazo: '',
+  });
   assert.equal(sinMotivo.status, 400);
-  const apr = await api(`/admin/comprobantes/${compId}/validar`, admin, 'PUT', { accion: 'aprobar' });
+  const apr = await api(`/admin/comprobantes/${compId}/validar`, admin, 'PUT', {
+    accion: 'aprobar',
+  });
   assert.equal(apr.status, 200, JSON.stringify(apr.data));
   assert.match(apr.data.numero_recibo, /^REC-\d{6}-\d{4}$/);
   const fac2 = await api(`/facturas/${fac.id}`, otherParent);
@@ -1167,19 +1204,31 @@ test('T04 deuda, PDFs y jobs idempotentes con RBAC', async () => {
   const deudaAdmin = await api(`/deuda/alumno/${otherChild}`, admin);
   assert.equal(deudaAdmin.status, 200);
   const fac = deudaPadre.data.facturas.find((r: { periodo: string }) => r.periodo === periodo);
-  assert.ok(fac, JSON.stringify(deudaPadre.data.facturas.map((r: { periodo: string }) => r.periodo)));
+  assert.ok(
+    fac,
+    JSON.stringify(deudaPadre.data.facturas.map((r: { periodo: string }) => r.periodo)),
+  );
   const pdfOk = await fetch(`${base}/facturas/${fac.id}/pdf`, { headers: { Cookie: otherParent } });
   assert.equal(pdfOk.status, 200);
   assert.match(pdfOk.headers.get('content-type') || '', /application\/pdf/);
   const pdfBytes = Buffer.from(await pdfOk.arrayBuffer());
   assert.equal(pdfBytes.subarray(0, 4).toString(), '%PDF');
   const deudaOtraFamilia = await api(`/deuda/alumno/${childId}`, admin);
-  const facOtra = deudaOtraFamilia.data.facturas.find((r: { periodo: string }) => r.periodo === periodo);
+  const facOtra = deudaOtraFamilia.data.facturas.find(
+    (r: { periodo: string }) => r.periodo === periodo,
+  );
   if (facOtra) {
-    assert.equal((await fetch(`${base}/facturas/${facOtra.id}/pdf`, { headers: { Cookie: otherParent } })).status, 403);
+    assert.equal(
+      (await fetch(`${base}/facturas/${facOtra.id}/pdf`, { headers: { Cookie: otherParent } }))
+        .status,
+      403,
+    );
   }
   assert.equal((await fetch(`${base}/facturas/${fac.id}/pdf`)).status, 401);
-  const pagosRango = await api(`/pagos/alumno/${otherChild}?desde=2026-01-01&hasta=2026-12-31`, otherParent);
+  const pagosRango = await api(
+    `/pagos/alumno/${otherChild}?desde=2026-01-01&hasta=2026-12-31`,
+    otherParent,
+  );
   assert.equal(pagosRango.status, 200);
   assert.ok(Array.isArray(pagosRango.data.comprobantes) && Array.isArray(pagosRango.data.recibos));
   const job1 = await api('/jobs/recordatorio-fin-mes', admin, 'POST', { periodo });
@@ -1189,8 +1238,14 @@ test('T04 deuda, PDFs y jobs idempotentes con RBAC', async () => {
   assert.equal(job1Retry.status, 201);
   assert.equal(job1Retry.data.enviadas, 0);
   assert.ok(job1Retry.data.omitidas >= 1);
-  assert.equal((await api('/jobs/recordatorio-fin-mes', otherParent, 'POST', { periodo })).status, 403);
-  assert.equal((await api('/jobs/recordatorio-fin-mes', admin, 'POST', { periodo: '2026-13' })).status, 400);
+  assert.equal(
+    (await api('/jobs/recordatorio-fin-mes', otherParent, 'POST', { periodo })).status,
+    403,
+  );
+  assert.equal(
+    (await api('/jobs/recordatorio-fin-mes', admin, 'POST', { periodo: '2026-13' })).status,
+    400,
+  );
   const job2 = await api('/jobs/aviso-deuda-dia-20', admin, 'POST', { periodo });
   assert.equal(job2.status, 201, JSON.stringify(job2.data));
   assert.ok(job2.data.enviadas >= 1);
@@ -1200,7 +1255,9 @@ test('T04 deuda, PDFs y jobs idempotentes con RBAC', async () => {
   assert.ok(logs.some((r: { tipo_aviso: string }) => r.tipo_aviso === 'deuda_dia_20'));
   const reciboRow = await db.get('SELECT id FROM recibos ORDER BY id DESC LIMIT 1');
   if (reciboRow) {
-    const pdfRec = await fetch(`${base}/recibos/${reciboRow.id}/pdf`, { headers: { Cookie: admin } });
+    const pdfRec = await fetch(`${base}/recibos/${reciboRow.id}/pdf`, {
+      headers: { Cookie: admin },
+    });
     assert.equal(pdfRec.status, 200);
     assert.match(pdfRec.headers.get('content-type') || '', /application\/pdf/);
   }
@@ -1212,20 +1269,35 @@ test('T04 HU-18: el rango desde/hasta incluye el día completo del extremo final
   const facs = (await api(`/facturas?alumno_id=${otherChild}`, otherParent)).data;
   const fac = facs.find((f: { periodo: string }) => f.periodo === periodo);
   assert.ok(fac, JSON.stringify(facs));
-  const item = (await api(`/facturas/${fac.id}`, otherParent)).data.items.find((i: { monto: number; monto_pagado: number }) => i.monto - i.monto_pagado > 0);
-  const png = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+  const item = (await api(`/facturas/${fac.id}`, otherParent)).data.items.find(
+    (i: { monto: number; monto_pagado: number }) => i.monto - i.monto_pagado > 0,
+  );
+  const png =
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
   const sub = await api(`/facturas/${fac.id}/comprobantes`, otherParent, 'POST', {
-    item_ids: [item.id], archivo_nombre: 'rango.png', archivo_mime: 'image/png', archivo_contenido: png,
+    item_ids: [item.id],
+    archivo_nombre: 'rango.png',
+    archivo_mime: 'image/png',
+    archivo_contenido: png,
     monto_declarado: Math.round((item.monto - item.monto_pagado) * 100) / 100,
   });
   assert.equal(sub.status, 201, JSON.stringify(sub.data));
   const hoy = new Date().toISOString().slice(0, 10);
   const mismoDia = await api(`/pagos/alumno/${otherChild}?desde=${hoy}&hasta=${hoy}`, otherParent);
   assert.equal(mismoDia.status, 200);
-  assert.ok(mismoDia.data.comprobantes.some((c: { id: number }) => c.id === sub.data.id), JSON.stringify(mismoDia.data.comprobantes));
+  assert.ok(
+    mismoDia.data.comprobantes.some((c: { id: number }) => c.id === sub.data.id),
+    JSON.stringify(mismoDia.data.comprobantes),
+  );
   const emision = String(fac.fecha_emision).slice(0, 10);
-  const rango = await api(`/facturas?alumno_id=${otherChild}&desde=${emision}&hasta=${emision}`, otherParent);
-  assert.ok(rango.data.some((f: { id: number }) => f.id === fac.id), JSON.stringify(rango.data));
+  const rango = await api(
+    `/facturas?alumno_id=${otherChild}&desde=${emision}&hasta=${emision}`,
+    otherParent,
+  );
+  assert.ok(
+    rango.data.some((f: { id: number }) => f.id === fac.id),
+    JSON.stringify(rango.data),
+  );
 });
 
 test('T04 HU-19: la deuda itemiza por concepto y el total coincide con la suma', async () => {
@@ -1233,8 +1305,18 @@ test('T04 HU-19: la deuda itemiza por concepto y el total coincide con la suma',
   assert.equal(deuda.status, 200);
   const items = deuda.data.facturas.flatMap((f: { items: unknown[] }) => f.items);
   assert.ok(items.some((i: { tipo: string }) => i.tipo === 'base'));
-  assert.ok(items.every((i: { descripcion: string }) => typeof i.descripcion === 'string' && i.descripcion.length > 0));
-  const suma = Math.round(deuda.data.facturas.reduce((n: number, f: { saldo_pendiente: number }) => n + Number(f.saldo_pendiente), 0) * 100) / 100;
+  assert.ok(
+    items.every(
+      (i: { descripcion: string }) => typeof i.descripcion === 'string' && i.descripcion.length > 0,
+    ),
+  );
+  const suma =
+    Math.round(
+      deuda.data.facturas.reduce(
+        (n: number, f: { saldo_pendiente: number }) => n + Number(f.saldo_pendiente),
+        0,
+      ) * 100,
+    ) / 100;
   assert.equal(Number(deuda.data.total_deuda), suma);
 });
 
@@ -1247,10 +1329,23 @@ test('T04 HU-18/HU-19: rango inclusivo, borde negativo y deuda por concepto con 
   const emision = String(fac.fecha_emision).slice(0, 10);
   const hoy = new Date().toISOString().slice(0, 10);
   const ayer = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
-  const mismoDia = await api(`/facturas?alumno_id=${otherChild}&desde=${emision}&hasta=${emision}`, otherParent);
-  assert.ok(mismoDia.data.some((f: { id: number }) => f.id === fac.id), JSON.stringify(mismoDia.data));
-  const anterior = await api(`/facturas?alumno_id=${otherChild}&desde=2000-01-01&hasta=${ayer}`, otherParent);
-  assert.equal(anterior.data.filter((f: { id: number }) => f.id === fac.id).length, 0, JSON.stringify(anterior.data));
+  const mismoDia = await api(
+    `/facturas?alumno_id=${otherChild}&desde=${emision}&hasta=${emision}`,
+    otherParent,
+  );
+  assert.ok(
+    mismoDia.data.some((f: { id: number }) => f.id === fac.id),
+    JSON.stringify(mismoDia.data),
+  );
+  const anterior = await api(
+    `/facturas?alumno_id=${otherChild}&desde=2000-01-01&hasta=${ayer}`,
+    otherParent,
+  );
+  assert.equal(
+    anterior.data.filter((f: { id: number }) => f.id === fac.id).length,
+    0,
+    JSON.stringify(anterior.data),
+  );
   const deuda = await api(`/deuda/alumno/${otherChild}`, otherParent);
   assert.equal(deuda.status, 200, JSON.stringify(deuda.data));
   const enDeuda = deuda.data.facturas.find((f: { id: number }) => f.id === fac.id);
@@ -1261,29 +1356,53 @@ test('T04 HU-18/HU-19: rango inclusivo, borde negativo y deuda por concepto con 
     assert.ok(typeof it.descripcion === 'string' && it.descripcion.length > 0);
     assert.equal(typeof it.monto_pagado, 'number');
   }
-  const item = enDeuda.items.find((it: { monto: number; monto_pagado: number }) => it.monto - it.monto_pagado > 0);
+  const item = enDeuda.items.find(
+    (it: { monto: number; monto_pagado: number }) => it.monto - it.monto_pagado > 0,
+  );
   assert.ok(item);
-  const png = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+  const png =
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
   const sub = await api(`/facturas/${fac.id}/comprobantes`, otherParent, 'POST', {
-    item_ids: [item.id], archivo_nombre: 'parcial.png', archivo_mime: 'image/png', archivo_contenido: png,
+    item_ids: [item.id],
+    archivo_nombre: 'parcial.png',
+    archivo_mime: 'image/png',
+    archivo_contenido: png,
     monto_declarado: Math.round((item.monto - item.monto_pagado) * 100) / 100,
   });
   assert.equal(sub.status, 201, JSON.stringify(sub.data));
-  const apr = await api(`/admin/comprobantes/${sub.data.id}/validar`, admin, 'PUT', { accion: 'aprobar' });
+  const apr = await api(`/admin/comprobantes/${sub.data.id}/validar`, admin, 'PUT', {
+    accion: 'aprobar',
+  });
   assert.equal(apr.status, 200, JSON.stringify(apr.data));
   const pagosHoy = await api(`/pagos/alumno/${otherChild}?desde=${hoy}&hasta=${hoy}`, otherParent);
-  assert.ok(pagosHoy.data.comprobantes.some((c: { id: number }) => c.id === sub.data.id), JSON.stringify(pagosHoy.data.comprobantes));
+  assert.ok(
+    pagosHoy.data.comprobantes.some((c: { id: number }) => c.id === sub.data.id),
+    JSON.stringify(pagosHoy.data.comprobantes),
+  );
   assert.ok(pagosHoy.data.recibos.length >= 1, JSON.stringify(pagosHoy.data.recibos));
-  const pagosAyer = await api(`/pagos/alumno/${otherChild}?desde=2000-01-01&hasta=${ayer}`, otherParent);
+  const pagosAyer = await api(
+    `/pagos/alumno/${otherChild}?desde=2000-01-01&hasta=${ayer}`,
+    otherParent,
+  );
   assert.equal(pagosAyer.data.comprobantes.length, 0, JSON.stringify(pagosAyer.data.comprobantes));
   assert.equal(pagosAyer.data.recibos.length, 0, JSON.stringify(pagosAyer.data.recibos));
   const deuda2 = await api(`/deuda/alumno/${otherChild}`, otherParent);
   const f2 = deuda2.data.facturas.find((f: { id: number }) => f.id === fac.id);
   if (f2) {
     assert.ok(f2.items.find((i: { id: number }) => i.id === item.id).monto_pagado > 0);
-    assert.ok(f2.items.filter((i: { id: number }) => i.id !== item.id).every((i: { monto_pagado: number }) => i.monto_pagado === 0));
+    assert.ok(
+      f2.items
+        .filter((i: { id: number }) => i.id !== item.id)
+        .every((i: { monto_pagado: number }) => i.monto_pagado === 0),
+    );
   }
-  const suma = Math.round(deuda2.data.facturas.reduce((n: number, f: { saldo_pendiente: number }) => n + Number(f.saldo_pendiente), 0) * 100) / 100;
+  const suma =
+    Math.round(
+      deuda2.data.facturas.reduce(
+        (n: number, f: { saldo_pendiente: number }) => n + Number(f.saldo_pendiente),
+        0,
+      ) * 100,
+    ) / 100;
   assert.equal(Number(deuda2.data.total_deuda), suma);
 });
 
@@ -1308,7 +1427,9 @@ test('T05 HU-22 a HU-26: reportes financieros con datos, rango y filtros', async
     grupo_deporte_id: grupoId,
   });
   assert.equal(insDeporte.status, 201, JSON.stringify(insDeporte.data));
-  const recorridoRow = await db.get('SELECT id, arancel_mensual FROM recorridos_transporte WHERE id = 1');
+  const recorridoRow = await db.get(
+    'SELECT id, arancel_mensual FROM recorridos_transporte WHERE id = 1',
+  );
   const insTransporte = await api('/inscripciones', otherParent, 'POST', {
     alumno_id: otherChild,
     tipo: 'transporte',
@@ -1341,7 +1462,10 @@ test('T05 HU-22 a HU-26: reportes financieros con datos, rango y filtros', async
   assert.ok(ingresos.data.cantidad >= 2, JSON.stringify(ingresos.data));
   assert.ok(ingresos.data.total > 0);
   // Los recibos aprobados son de hoy: el rango que termina ayer no captura nada.
-  const ingresosAyer = await api(`/reportes/ingresos-periodo?desde=2000-01-01&hasta=${ayer}`, admin);
+  const ingresosAyer = await api(
+    `/reportes/ingresos-periodo?desde=2000-01-01&hasta=${ayer}`,
+    admin,
+  );
   assert.equal(ingresosAyer.status, 200);
   assert.equal(ingresosAyer.data.cantidad, 0, JSON.stringify(ingresosAyer.data));
   assert.equal(ingresosAyer.data.total, 0);
@@ -1354,7 +1478,10 @@ test('T05 HU-22 a HU-26: reportes financieros con datos, rango y filtros', async
     assert.equal(Number(f.saldo_pendiente), 0);
     assert.ok(f.numero_factura && f.alumno?.id && Number(f.total) > 0, JSON.stringify(f));
   }
-  const completosAyer = await api(`/reportes/pagos-completos?desde=2000-01-01&hasta=${ayer}`, admin);
+  const completosAyer = await api(
+    `/reportes/pagos-completos?desde=2000-01-01&hasta=${ayer}`,
+    admin,
+  );
   assert.equal(completosAyer.status, 200);
   assert.equal(completosAyer.data.length, 0, JSON.stringify(completosAyer.data));
 
@@ -1401,7 +1528,10 @@ test('T05 HU-22 a HU-26: reportes financieros con datos, rango y filtros', async
   assert.ok(
     basquetRow.grupos.some(
       (g: { nivel: string; dia: string; horario: string; profesor: string | null }) =>
-        g.nivel === alumnoRow.nivel && g.dia === 'Sábado' && g.horario === '18:00 - 19:30' && g.profesor,
+        g.nivel === alumnoRow.nivel &&
+        g.dia === 'Sábado' &&
+        g.horario === '18:00 - 19:30' &&
+        g.profesor,
     ),
     JSON.stringify(basquetRow.grupos),
   );
@@ -1416,7 +1546,10 @@ test('T05 HU-22 a HU-26: reportes financieros con datos, rango y filtros', async
     admin,
   );
   assert.equal(nivelAjeno.status, 200);
-  assert.equal(nivelAjeno.data.filter((r: { deporte: string }) => r.deporte === 'Basquet').length, 0);
+  assert.equal(
+    nivelAjeno.data.filter((r: { deporte: string }) => r.deporte === 'Basquet').length,
+    0,
+  );
   const profesorAjeno = await api('/reportes/pagos-por-deporte?profesor_id=99999', admin);
   assert.equal(profesorAjeno.status, 200);
   assert.equal(profesorAjeno.data.length, 0);
@@ -1484,7 +1617,10 @@ test('T05: RBAC y validación de parámetros en los reportes financieros', async
   assert.equal((await api('/reportes/pagos-incompletos?curso_id=abc', admin)).status, 400);
   assert.equal((await api('/reportes/pagos-por-deporte?deporte_id=abc', admin)).status, 400);
   assert.equal((await api('/reportes/pagos-por-deporte?profesor_id=abc', admin)).status, 400);
-  assert.equal((await api('/reportes/pagos-por-deporte?data=x&desde=2026-01-01&hasta=x', admin)).status, 400);
+  assert.equal(
+    (await api('/reportes/pagos-por-deporte?data=x&desde=2026-01-01&hasta=x', admin)).status,
+    400,
+  );
   assert.equal((await api('/reportes/pagos-por-transporte?recorrido_id=abc', admin)).status, 400);
   assert.equal((await api('/reportes/pagos-por-transporte?hasta=x', admin)).status, 400);
 });
@@ -1499,9 +1635,13 @@ test('T03 el rechazo libera los conceptos y no deja el comprobante en revisión'
     (i: { monto: number; monto_pagado: number }) => i.monto - i.monto_pagado > 0,
   );
   assert.ok(item);
-  const png = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+  const png =
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
   const sub = await api(`/facturas/${fac.id}/comprobantes`, otherParent, 'POST', {
-    item_ids: [item.id], archivo_nombre: 'rechazo.png', archivo_mime: 'image/png', archivo_contenido: png,
+    item_ids: [item.id],
+    archivo_nombre: 'rechazo.png',
+    archivo_mime: 'image/png',
+    archivo_contenido: png,
     monto_declarado: Math.round((item.monto - item.monto_pagado) * 100) / 100,
   });
   assert.equal(sub.status, 201, JSON.stringify(sub.data));
@@ -1520,4 +1660,130 @@ test('T03 el rechazo libera los conceptos y no deja el comprobante en revisión'
     motivo_rechazo: 'Otro motivo',
   });
   assert.equal(otra.status, 400);
+});
+
+test('T07 hardening: cron autenticado, deuda global, comprobantes sin binario y pagos completos', async () => {
+  const cron = async (path: string, secret = process.env.CRON_SECRET ?? '') => {
+    const response = await fetch(`${base}${path}`, {
+      headers: secret ? { Authorization: `Bearer ${secret}` } : {},
+    });
+    return { status: response.status, data: await response.json() };
+  };
+  const sinSecreto = await cron('/jobs/cron/fin-de-mes?fecha=2026-11-30', '');
+  assert.equal(sinSecreto.status, 401);
+  const secretoMalo = await cron('/jobs/cron/fin-de-mes?fecha=2026-11-30', 'otro-secreto');
+  assert.equal(secretoMalo.status, 401);
+
+  const finDeMes = await cron('/jobs/cron/fin-de-mes?fecha=2026-11-30');
+  assert.equal(finDeMes.status, 200, JSON.stringify(finDeMes.data));
+  assert.equal(finDeMes.data.periodo, '2026-11');
+  assert.ok(finDeMes.data.creadas >= 1, JSON.stringify(finDeMes.data));
+  assert.ok(finDeMes.data.enviadas >= 1, JSON.stringify(finDeMes.data));
+  const finDeMesRetry = await cron('/jobs/cron/fin-de-mes?fecha=2026-11-30');
+  assert.equal(finDeMesRetry.status, 200);
+  assert.equal(finDeMesRetry.data.enviadas, 0);
+  assert.ok(finDeMesRetry.data.omitidas >= 1);
+  const noEsUltimo = await cron('/jobs/cron/fin-de-mes?fecha=2026-11-25');
+  assert.equal(noEsUltimo.status, 200);
+  assert.equal(noEsUltimo.data.skipped, true);
+
+  // El día 20 incluye deuda de cualquier período, no solo la del mes actual.
+  const deuda = await cron('/jobs/cron/deuda-dia-20?fecha=2026-11-20');
+  assert.equal(deuda.status, 200, JSON.stringify(deuda.data));
+  assert.ok(deuda.data.enviadas >= 1, JSON.stringify(deuda.data));
+  const noEsDia20 = await cron('/jobs/cron/deuda-dia-20?fecha=2026-11-19');
+  assert.equal(noEsDia20.status, 200);
+  assert.equal(noEsDia20.data.skipped, true);
+
+  // Un ítem en revisión no se puede volver a declarar en otro comprobante.
+  const periodoDup = '2027-01';
+  assert.equal(
+    (await api('/facturas/generar-periodo', admin, 'POST', { periodo: periodoDup })).status,
+    201,
+  );
+  const facsDup = (await api(`/facturas?alumno_id=${otherChild}`, otherParent)).data;
+  const facDup = facsDup.find((f: { periodo: string }) => f.periodo === periodoDup);
+  assert.ok(facDup, JSON.stringify(facsDup));
+  const detalleDup = (await api(`/facturas/${facDup.id}`, otherParent)).data;
+  const itemDup = detalleDup.items.find(
+    (it: { estado: string; monto: number; monto_pagado: number }) =>
+      it.estado === 'pendiente' && it.monto - it.monto_pagado > 0,
+  );
+  assert.ok(itemDup);
+  const png =
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+  const comprobante = {
+    item_ids: [itemDup.id],
+    archivo_nombre: 'hardening.png',
+    archivo_mime: 'image/png',
+    archivo_contenido: png,
+    monto_declarado: Math.round((itemDup.monto - itemDup.monto_pagado) * 100) / 100,
+  };
+  const primero = await api(
+    `/facturas/${facDup.id}/comprobantes`,
+    otherParent,
+    'POST',
+    comprobante,
+  );
+  assert.equal(primero.status, 201, JSON.stringify(primero.data));
+  const segundo = await api(
+    `/facturas/${facDup.id}/comprobantes`,
+    otherParent,
+    'POST',
+    comprobante,
+  );
+  assert.equal(segundo.status, 409, JSON.stringify(segundo.data));
+
+  // Los listados no devuelven el binario base64: se sirve solo por /archivo.
+  const cola = await api('/admin/comprobantes?estado=en_revision', admin);
+  const fila = cola.data.find((r: { id: number }) => r.id === primero.data.id);
+  assert.ok(fila);
+  assert.equal(fila.archivo_contenido, undefined);
+  const detalleSinBinario = (await api(`/facturas/${facDup.id}`, otherParent)).data;
+  assert.ok(detalleSinBinario.comprobantes.length >= 1);
+  assert.equal(detalleSinBinario.comprobantes[0].archivo_contenido, undefined);
+  const pagosSinBinario = await api(`/pagos/alumno/${otherChild}`, otherParent);
+  assert.equal(pagosSinBinario.data.comprobantes[0].archivo_contenido, undefined);
+
+  // Pagos completos: una factura 100% abonada debe aparecer en el reporte.
+  const periodoCompleto = '2027-02';
+  assert.equal(
+    (await api('/facturas/generar-periodo', admin, 'POST', { periodo: periodoCompleto })).status,
+    201,
+  );
+  const facsCompleta = (await api(`/facturas?alumno_id=${otherChild}`, otherParent)).data;
+  const facCompleta = facsCompleta.find((f: { periodo: string }) => f.periodo === periodoCompleto);
+  assert.ok(facCompleta, JSON.stringify(facsCompleta));
+  const detalleCompleto = (await api(`/facturas/${facCompleta.id}`, otherParent)).data;
+  const itemsCompletos = detalleCompleto.items.filter(
+    (it: { estado: string; monto: number; monto_pagado: number }) =>
+      it.estado === 'pendiente' && it.monto - it.monto_pagado > 0,
+  );
+  assert.ok(itemsCompletos.length >= 1);
+  const totalCompleto =
+    Math.round(
+      itemsCompletos.reduce(
+        (n: number, it: { monto: number; monto_pagado: number }) =>
+          n + (it.monto - it.monto_pagado),
+        0,
+      ) * 100,
+    ) / 100;
+  const pagoCompleto = await api(`/facturas/${facCompleta.id}/comprobantes`, otherParent, 'POST', {
+    item_ids: itemsCompletos.map((it: { id: number }) => it.id),
+    archivo_nombre: 'completo.png',
+    archivo_mime: 'image/png',
+    archivo_contenido: png,
+    monto_declarado: totalCompleto,
+  });
+  assert.equal(pagoCompleto.status, 201, JSON.stringify(pagoCompleto.data));
+  const aprobado = await api(`/admin/comprobantes/${pagoCompleto.data.id}/validar`, admin, 'PUT', {
+    accion: 'aprobar',
+  });
+  assert.equal(aprobado.status, 200, JSON.stringify(aprobado.data));
+  const completos = await api('/reportes/pagos-completos', admin);
+  assert.equal(completos.status, 200);
+  assert.ok(
+    completos.data.some((r: { id: number }) => r.id === facCompleta.id),
+    JSON.stringify(completos.data),
+  );
 });

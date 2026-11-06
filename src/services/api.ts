@@ -188,14 +188,29 @@ export const api = {
     request<Alumno[]>(
       `/padres/hijos?email=${encodeURIComponent(email)}${usuarioId ? `&usuario_id=${usuarioId}` : ''}`,
     ),
-  getFacturas: (filtros: { alumno_id?: number; estado?: string; desde?: string; hasta?: string }) => {
+  getFacturas: (filtros: {
+    alumno_id?: number;
+    estado?: string;
+    desde?: string;
+    hasta?: string;
+  }) => {
     const query = new URLSearchParams();
     if (filtros.alumno_id) query.set('alumno_id', String(filtros.alumno_id));
     if (filtros.estado) query.set('estado', filtros.estado);
     if (filtros.desde) query.set('desde', filtros.desde);
     if (filtros.hasta) query.set('hasta', filtros.hasta);
     const qs = query.toString();
-    return request<{ id: number; numero_factura: string; periodo: string; total: number; saldo_pendiente: number; estado: string; fecha_vencimiento: string }[]>(`/facturas${qs ? `?${qs}` : ''}`);
+    return request<
+      {
+        id: number;
+        numero_factura: string;
+        periodo: string;
+        total: number;
+        saldo_pendiente: number;
+        estado: string;
+        fecha_vencimiento: string;
+      }[]
+    >(`/facturas${qs ? `?${qs}` : ''}`);
   },
   getFactura: (id: number) =>
     request<{ id: number; items: { descripcion: string; monto: number }[] }>(`/facturas/${id}`),
@@ -208,14 +223,17 @@ export const api = {
       '/facturas/generar-periodo',
       { periodo },
     ),
-  subirComprobante: (facturaId: number, data: {
-    item_ids: number[];
-    archivo_nombre: string;
-    archivo_mime: string;
-    archivo_contenido: string;
-    monto_declarado: number;
-    referencia_transferencia?: string;
-  }) =>
+  subirComprobante: (
+    facturaId: number,
+    data: {
+      item_ids: number[];
+      archivo_nombre: string;
+      archivo_mime: string;
+      archivo_contenido: string;
+      monto_declarado: number;
+      referencia_transferencia?: string;
+    },
+  ) =>
     post<{ id: number; estado: string }, typeof data>(`/facturas/${facturaId}/comprobantes`, data),
   getAdminComprobantes: (estado?: string) =>
     request<{ id: number; factura_id: number; estado: string }[]>(

@@ -1,6 +1,10 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "regions": ["gru1"],
+  "crons": [
+    { "path": "/api/jobs/cron/fin-de-mes", "schedule": "0 18 * * *" },
+    { "path": "/api/jobs/cron/deuda-dia-20", "schedule": "0 8 20 * *" }
+  ],
   "rewrites": [
     {
       "source": "/api/:path*",

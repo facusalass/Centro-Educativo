@@ -98,7 +98,9 @@ export function StudentFeesPanel({ alumnoIdFijo }: { alumnoIdFijo?: number }) {
       request<{ comprobantes: PagoComprobante[]; recibos: Recibo[] }>(
         `/pagos/alumno/${alumnoId}${pagosQs ? `?${pagosQs}` : ''}`,
       ),
-      request<{ total_deuda: number; facturas: Factura[] }>(`/deuda/alumno/${alumnoId}`).catch(() => null),
+      request<{ total_deuda: number; facturas: Factura[] }>(`/deuda/alumno/${alumnoId}`).catch(
+        () => null,
+      ),
     ])
       .then(([facs, pagos, debt]) => {
         setFacturas(facs);
@@ -111,7 +113,9 @@ export function StudentFeesPanel({ alumnoIdFijo }: { alumnoIdFijo?: number }) {
   }, [alumnoId, desde, hasta]);
 
   const visibles = filtro ? facturas.filter((f) => f.estado === filtro) : facturas;
-  const pendientes = facturas.filter((f) => ['pendiente', 'parcial', 'en_revision', 'vencida'].includes(f.estado));
+  const pendientes = facturas.filter((f) =>
+    ['pendiente', 'parcial', 'en_revision', 'vencida'].includes(f.estado),
+  );
   const pagadas = facturas.filter((f) => f.estado === 'pagada');
 
   return (
@@ -163,17 +167,34 @@ export function StudentFeesPanel({ alumnoIdFijo }: { alumnoIdFijo?: number }) {
                 Hasta
                 <input type="date" value={hasta} onChange={(e) => setHasta(e.target.value)} />
               </label>
-              <button type="button" onClick={() => window.print()}>Imprimir</button>
+              <button type="button" onClick={() => window.print()}>
+                Imprimir
+              </button>
             </div>
             {deuda && (
               <div>
-                <p>Deuda itemizada: {fmt(deuda.total_deuda)} en {deuda.facturas.length} factura(s).</p>
+                <p>
+                  Deuda itemizada: {fmt(deuda.total_deuda)} en {deuda.facturas.length} factura(s).
+                </p>
                 {deuda.facturas.map((f) => (
                   <div key={f.id}>
-                    <strong>{f.numero_factura} · {f.periodo} — saldo {fmt(f.saldo_pendiente)}</strong>
+                    <strong>
+                      {f.numero_factura} · {f.periodo} — saldo {fmt(f.saldo_pendiente)}
+                    </strong>
                     <ul>
-                      {(f as unknown as { items?: { id: number; descripcion: string; monto: number; monto_pagado: number }[] }).items?.map((it) => (
-                        <li key={it.id}>{it.descripcion} — {fmt(it.monto - it.monto_pagado)} (de {fmt(it.monto)})</li>
+                      {(
+                        f as unknown as {
+                          items?: {
+                            id: number;
+                            descripcion: string;
+                            monto: number;
+                            monto_pagado: number;
+                          }[];
+                        }
+                      ).items?.map((it) => (
+                        <li key={it.id}>
+                          {it.descripcion} — {fmt(it.monto - it.monto_pagado)} (de {fmt(it.monto)})
+                        </li>
                       ))}
                     </ul>
                   </div>
@@ -188,11 +209,18 @@ export function StudentFeesPanel({ alumnoIdFijo }: { alumnoIdFijo?: number }) {
                     {f.numero_factura} · {f.periodo}
                   </strong>
                   <p>
-                    Total {fmt(f.total)} · Saldo {fmt(f.saldo_pendiente)} · {f.estado} ·
-                    vence {f.fecha_vencimiento?.slice(0, 10)}
+                    Total {fmt(f.total)} · Saldo {fmt(f.saldo_pendiente)} · {f.estado} · vence{' '}
+                    {f.fecha_vencimiento?.slice(0, 10)}
                   </p>
                 </div>
-                <button type="button" onClick={() => void descargarPdf(`/facturas/${f.id}/pdf`, `${f.numero_factura}.pdf`)}>PDF factura</button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    void descargarPdf(`/facturas/${f.id}/pdf`, `${f.numero_factura}.pdf`)
+                  }
+                >
+                  PDF factura
+                </button>
                 <UploadComprobante facturaId={f.id} onSubido={() => window.location.reload()} />
               </article>
             ))}
@@ -203,7 +231,14 @@ export function StudentFeesPanel({ alumnoIdFijo }: { alumnoIdFijo?: number }) {
             {recibos.map((r) => (
               <p key={r.id}>
                 {r.numero_recibo} · {fmt(r.monto_total)}{' '}
-                <button type="button" onClick={() => void descargarPdf(`/recibos/${r.id}/pdf`, `${r.numero_recibo}.pdf`)}>PDF recibo</button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    void descargarPdf(`/recibos/${r.id}/pdf`, `${r.numero_recibo}.pdf`)
+                  }
+                >
+                  PDF recibo
+                </button>
               </p>
             ))}
           </section>
@@ -232,14 +267,28 @@ export function StudentFeesPanel({ alumnoIdFijo }: { alumnoIdFijo?: number }) {
 }
 
 function UploadComprobante({ facturaId, onSubido }: { facturaId: number; onSubido: () => void }) {
-  const [items, setItems] = useState<{ id: number; descripcion: string; monto: number; monto_pagado: number }[]>([]);
+  const [items, setItems] = useState<
+    { id: number; descripcion: string; monto: number; monto_pagado: number; estado: string }[]
+  >([]);
   const [seleccion, setSeleccion] = useState<number[]>([]);
   const [archivo, setArchivo] = useState<File | null>(null);
   const [referencia, setReferencia] = useState('');
   const [error, setError] = useState('');
   useEffect(() => {
-    request<{ items: { id: number; descripcion: string; monto: number; monto_pagado: number }[] }>(`/facturas/${facturaId}`)
-      .then((d) => setItems(d.items))
+    request<{
+      items: {
+        id: number;
+        descripcion: string;
+        monto: number;
+        monto_pagado: number;
+        estado: string;
+      }[];
+    }>(`/facturas/${facturaId}`)
+      .then((d) =>
+        setItems(
+          d.items.filter((it) => it.estado === 'pendiente' && it.monto - it.monto_pagado > 0),
+        ),
+      )
       .catch(() => {});
   }, [facturaId]);
   const enviar = async () => {
@@ -247,6 +296,10 @@ function UploadComprobante({ facturaId, onSubido }: { facturaId: number; onSubid
     try {
       if (!seleccion.length) throw new Error('Seleccioná al menos un concepto.');
       if (!archivo) throw new Error('Elegí el comprobante (JPG/PNG/PDF hasta 5 MB).');
+      const tiposPermitidos = ['image/jpeg', 'image/png', 'application/pdf'];
+      if (!tiposPermitidos.includes(archivo.type))
+        throw new Error('El comprobante debe ser JPG, PNG o PDF.');
+      if (archivo.size > 5 * 1024 * 1024) throw new Error('El comprobante debe pesar hasta 5 MB.');
       const b64 = await new Promise<string>((resolve, reject) => {
         const r = new FileReader();
         r.onload = () => resolve(String(r.result).split(',')[1] ?? '');
@@ -254,7 +307,8 @@ function UploadComprobante({ facturaId, onSubido }: { facturaId: number; onSubid
         r.readAsDataURL(archivo);
       });
       const elegidos = items.filter((it) => seleccion.includes(it.id));
-      const total = Math.round(elegidos.reduce((n, it) => n + (it.monto - it.monto_pagado), 0) * 100) / 100;
+      const total =
+        Math.round(elegidos.reduce((n, it) => n + (it.monto - it.monto_pagado), 0) * 100) / 100;
       await request(`/facturas/${facturaId}/comprobantes`, {
         method: 'POST',
         body: JSON.stringify({
@@ -274,19 +328,34 @@ function UploadComprobante({ facturaId, onSubido }: { facturaId: number; onSubid
   return (
     <div>
       <Feedback error>{error}</Feedback>
+      {!items.length && <p className="empty-state">No hay conceptos pendientes de pago.</p>}
       {items.map((it) => (
         <label key={it.id}>
           <input
             type="checkbox"
             checked={seleccion.includes(it.id)}
-            onChange={(e) => setSeleccion(e.target.checked ? [...seleccion, it.id] : seleccion.filter((s) => s !== it.id))}
+            onChange={(e) =>
+              setSeleccion(
+                e.target.checked ? [...seleccion, it.id] : seleccion.filter((s) => s !== it.id),
+              )
+            }
           />
           {it.descripcion} (saldo {(it.monto - it.monto_pagado).toFixed(2)})
         </label>
       ))}
-      <input type="file" accept=".jpg,.jpeg,.png,.pdf" onChange={(e) => setArchivo(e.target.files?.[0] ?? null)} />
-      <input placeholder="Referencia de transferencia" value={referencia} onChange={(e) => setReferencia(e.target.value)} />
-      <button type="button" onClick={() => void enviar()}>Subir comprobante</button>
+      <input
+        type="file"
+        accept=".jpg,.jpeg,.png,.pdf"
+        onChange={(e) => setArchivo(e.target.files?.[0] ?? null)}
+      />
+      <input
+        placeholder="Referencia de transferencia"
+        value={referencia}
+        onChange={(e) => setReferencia(e.target.value)}
+      />
+      <button type="button" onClick={() => void enviar()}>
+        Subir comprobante
+      </button>
     </div>
   );
 }

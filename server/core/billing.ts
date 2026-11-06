@@ -100,12 +100,8 @@ export async function generateMonthlyInvoices(periodo: string) {
       'SELECT numero_factura FROM facturas WHERE periodo = ? ORDER BY numero_factura DESC LIMIT 1',
       [periodo],
     );
-    let next = maxRow
-      ? Number(String(maxRow.numero_factura).slice(-4)) + 1 || 1
-      : 1;
-    const alumnos = await db.all(
-      "SELECT id FROM alumnos WHERE estado = 'activo' ORDER BY id",
-    );
+    let next = maxRow ? Number(String(maxRow.numero_factura).slice(-4)) + 1 || 1 : 1;
+    const alumnos = await db.all("SELECT id FROM alumnos WHERE estado = 'activo' ORDER BY id");
     let creadas = 0;
     let omitidas = 0;
     for (const a of alumnos) {
@@ -219,7 +215,13 @@ export function registerBillingRoutes(app: Express) {
     await requireStudent(req, factura.alumno_id);
     const [items, comprobantes, recibos] = await Promise.all([
       db.all('SELECT * FROM factura_items WHERE factura_id = ? ORDER BY id', [factura.id]),
-      db.all('SELECT * FROM pagos_comprobantes WHERE factura_id = ? ORDER BY id', [factura.id]),
+      db.all(
+        `SELECT id, factura_id, padre_id, fecha_presentacion, monto_declarado,
+                referencia_transferencia, archivo_nombre, archivo_mime, estado,
+                motivo_rechazo, validado_por, fecha_validacion
+           FROM pagos_comprobantes WHERE factura_id = ? ORDER BY id`,
+        [factura.id],
+      ),
       db.all('SELECT * FROM recibos WHERE factura_id = ? ORDER BY id', [factura.id]),
     ]);
     res.json({ ...factura, estado: displayEstado(factura), items, comprobantes, recibos });
@@ -256,11 +258,17 @@ export function registerBillingRoutes(app: Express) {
       recParams.push(finDeDia(hasta));
     }
     const comprobantes = await db.all(
-      `SELECT c.* FROM pagos_comprobantes c JOIN facturas f ON f.id = c.factura_id
-       WHERE ${compClauses.join(' AND ')} ORDER BY c.id DESC`,
+      `SELECT c.id, c.factura_id, c.padre_id, c.fecha_presentacion, c.monto_declarado,
+              c.referencia_transferencia, c.archivo_nombre, c.archivo_mime, c.estado,
+              c.motivo_rechazo, c.validado_por, c.fecha_validacion
+         FROM pagos_comprobantes c JOIN facturas f ON f.id = c.factura_id
+        WHERE ${compClauses.join(' AND ')} ORDER BY c.id DESC`,
       compParams,
     );
-    const recibos = await db.all(`SELECT * FROM recibos WHERE ${recClauses.join(' AND ')} ORDER BY id DESC`, recParams);
+    const recibos = await db.all(
+      `SELECT * FROM recibos WHERE ${recClauses.join(' AND ')} ORDER BY id DESC`,
+      recParams,
+    );
     res.json({ comprobantes, recibos });
   });
 
@@ -295,8 +303,14 @@ export function registerBillingRoutes(app: Express) {
     const factura = await db.get('SELECT * FROM facturas WHERE id = ?', [idOf(req.params.id)]);
     assert(factura, 404, 'Factura no encontrada.');
     const alumno = await requireStudent(req, factura.alumno_id);
-    const items = await db.all('SELECT * FROM factura_items WHERE factura_id = ? ORDER BY id', [factura.id]);
-    const pdf = await facturaPdfBuffer({ ...factura, estado: displayEstado(factura) }, items as { descripcion: string; monto: number }[], alumno);
+    const items = await db.all('SELECT * FROM factura_items WHERE factura_id = ? ORDER BY id', [
+      factura.id,
+    ]);
+    const pdf = await facturaPdfBuffer(
+      { ...factura, estado: displayEstado(factura) },
+      items as { descripcion: string; monto: number }[],
+      alumno,
+    );
     res.type('application/pdf');
     res.set('Content-Disposition', `inline; filename="${factura.numero_factura}.pdf"`);
     res.send(pdf);
@@ -312,7 +326,20 @@ export function registerBillingRoutes(app: Express) {
     assert(recibo, 404, 'Recibo no encontrado.');
     const factura = await db.get('SELECT * FROM facturas WHERE id = ?', [recibo.factura_id]);
     const alumno = await requireStudent(req, recibo.alumno_id);
-    const pdf = await reciboPdfBuffer(recibo, factura, alumno);
+    const [facturaItems, puente] = await Promise.all([
+      db.all('SELECT * FROM factura_items WHERE factura_id = ? ORDER BY id', [recibo.factura_id]),
+      db.all('SELECT * FROM pago_comprobante_items WHERE comprobante_id = ? ORDER BY id', [
+        recibo.comprobante_id,
+      ]),
+    ]);
+    const descripciones = new Map(
+      facturaItems.map((it: any) => [Number(it.id), String(it.descripcion)]),
+    );
+    const imputaciones = puente.map((p: any) => ({
+      descripcion: descripciones.get(Number(p.factura_item_id)) ?? 'Concepto',
+      monto_imputado: Number(p.monto_imputado),
+    }));
+    const pdf = await reciboPdfBuffer(recibo, factura, alumno, imputaciones);
     res.type('application/pdf');
     res.set('Content-Disposition', `inline; filename="${recibo.numero_recibo}.pdf"`);
     res.send(pdf);

@@ -39,8 +39,12 @@ export function facturaPdfBuffer(
 ): Promise<Buffer> {
   const doc = baseDoc(`Factura ${factura.numero_factura} · Período ${factura.periodo}`);
   doc.fontSize(11).text(`Alumno: ${alumno.nombre} ${alumno.apellido}`);
-  doc.text(`Emisión: ${String(factura.fecha_emision).slice(0, 10)} · Vence: ${String(factura.fecha_vencimiento).slice(0, 10)}`);
-  doc.text(`Total: $${Number(factura.total).toFixed(2)} · Saldo: $${Number(factura.saldo_pendiente).toFixed(2)} · Estado: ${factura.estado}`);
+  doc.text(
+    `Emisión: ${String(factura.fecha_emision).slice(0, 10)} · Vence: ${String(factura.fecha_vencimiento).slice(0, 10)}`,
+  );
+  doc.text(
+    `Total: $${Number(factura.total).toFixed(2)} · Saldo: $${Number(factura.saldo_pendiente).toFixed(2)} · Estado: ${factura.estado}`,
+  );
   doc.moveDown();
   for (const it of items)
     doc.fontSize(11).text(`${it.descripcion} — $${Number(it.monto).toFixed(2)}`);
@@ -48,13 +52,27 @@ export function facturaPdfBuffer(
 }
 
 export function reciboPdfBuffer(
-  recibo: { numero_recibo: string; fecha_emision: string; monto_total: number },
+  recibo: {
+    numero_recibo: string;
+    fecha_emision: string;
+    monto_total: number;
+    detalle_json?: string;
+  },
   factura: FacturaLike,
   alumno: AlumnoLike,
+  imputaciones: { descripcion: string; monto_imputado: number }[] = [],
 ): Promise<Buffer> {
   const doc = baseDoc(`Recibo ${recibo.numero_recibo}`);
   doc.fontSize(11).text(`Alumno: ${alumno.nombre} ${alumno.apellido}`);
   doc.text(`Factura: ${factura.numero_factura} · Período ${factura.periodo}`);
-  doc.text(`Fecha: ${String(recibo.fecha_emision).slice(0, 10)} · Monto: $${Number(recibo.monto_total).toFixed(2)}`);
+  doc.text(
+    `Fecha: ${String(recibo.fecha_emision).slice(0, 10)} · Monto: $${Number(recibo.monto_total).toFixed(2)}`,
+  );
+  if (imputaciones.length) {
+    doc.moveDown();
+    doc.fontSize(11).text('Detalle de conceptos abonados:');
+    for (const item of imputaciones)
+      doc.fontSize(11).text(`${item.descripcion} — $${Number(item.monto_imputado).toFixed(2)}`);
+  }
   return toBuffer(doc);
 }

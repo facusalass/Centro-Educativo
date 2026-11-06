@@ -82,6 +82,8 @@ const publicGets = new Set([
   '/api/opiniones',
   '/api/actividades',
   '/api/galeria',
+  '/api/jobs/cron/fin-de-mes',
+  '/api/jobs/cron/deuda-dia-20',
 ]);
 const publicPosts = new Set([
   '/api/auth/login',
@@ -333,12 +335,14 @@ export function installSecurity(app: Express) {
     res.json({ ok: true });
   });
   // HU-04 (RF-01.3): la respuesta es siempre neutra para no revelar si el email existe;
-  // el token crudo viaja solo dentro del correo, la base conserva únicamente su hash.
-  // El token es de un solo uso, expira y al restablecer se revocan las sesiones activas.
+  // el token se guarda hasheado en `password_resets` y la cola de correo se redacta
+  // después del envío. El token es de un solo uso, expira y al restablecer se
+  // revocan las sesiones activas.
   const resetLinkOrigin = process.env.FRONTEND_URL || 'http://localhost:5173';
   const neutralRecovery = {
     ok: true,
-    mensaje: 'Si el email está registrado, te enviamos un enlace para restablecer la contraseña. Revisá tu casilla.',
+    mensaje:
+      'Si el email está registrado, te enviamos un enlace para restablecer la contraseña. Revisá tu casilla.',
   };
   const invalidResetLink = 'El enlace de recuperación no es válido o ya expiró. Pedí uno nuevo.';
   app.post('/api/auth/forgot-password', async (req: Request, res: Response) => {

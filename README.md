@@ -48,8 +48,14 @@ Los cursos recuperados de legajos históricos pueden tener turno **A confirmar**
 - Arancel mensual estimado con importes configurables.
 - Evaluaciones, enlaces a entregas, calificaciones y devolución histórica.
 - Asistencias, notificaciones y auditoría.
-- Nueve reportes con búsqueda, CSV e impresión/PDF.
+- Catorce reportes con búsqueda, CSV e impresión/PDF, incluidos los cinco financieros de la Parte 3.
 - Noticias, actividades, instalaciones, galería, opiniones moderadas, solicitudes, contacto y postulaciones.
+
+## PWA móvil (Parte 3)
+
+El portal de familias y estudiantes es una PWA instalable: `vite-plugin-pwa` genera `manifest.webmanifest`, `sw.js` e iconos en `dist/`. La navegación móvil se activa por debajo de 900 px y arranca desde 360 px. El Service Worker precachea el shell y solo cachea GET públicos (noticias, actividades, galería, catálogos); las respuestas financieras y de sesión nunca se guardan en el dispositivo.
+
+Para probarla: `npm run build`, `npm start` y abrir el sitio en el navegador del teléfono. En Android/Edge se puede instalar desde el menú; en iOS se usa “Agregar a pantalla de inicio”. La app requiere conexión para consultar cuotas, comprobantes y reportes.
 
 ## Correo
 
@@ -88,6 +94,8 @@ La restauración rechaza bases con datos. `--replace` autoriza explícitamente r
 ## Vercel
 
 El proyecto conserva su configuración de Vercel y el endpoint `/api`. Configurar por entorno `DATABASE_URL` y `JWT_SECRET`; para correo, las variables SMTP. `FRONTEND_URL` solo es necesario cuando frontend y API usan orígenes distintos.
+
+Los avisos de facturación automáticos usan Vercel Cron (`vercel.json`): el último día hábil a las 18:00 UTC y el día 20 a las 08:00 UTC. Configurar `CRON_SECRET` en Vercel; el scheduler envía `Authorization: Bearer <CRON_SECRET>` a `/api/jobs/cron/*`. Sin ese secreto los endpoints responden 503 y los avisos solo se pueden disparar manualmente desde administración. En un servidor persistente (`npm start`) el cron local se controla con `BILLING_CRON=off`.
 
 Las contraseñas históricas se migran a hashes y se vacía el campo demo. El código anterior de login queda incompatible con esa migración: publicar el backend nuevo como parte del mismo cambio. Las cookies de producción requieren HTTPS.
 

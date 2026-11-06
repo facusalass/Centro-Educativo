@@ -804,10 +804,7 @@ function round2dollars(n: number) {
   return Math.round(n * 100) / 100;
 }
 
-function tablaPagosPorPeriodo(
-  filas: FilaPagosPorPeriodo[],
-  columnasSaldo: boolean,
-) {
+function tablaPagosPorPeriodo(filas: FilaPagosPorPeriodo[], columnasSaldo: boolean) {
   const { totalFacturado, totalSaldo } = totalesFilasPagos(filas);
   return (
     <div className="report-table-wrapper">
@@ -936,8 +933,7 @@ export function renderPagosIncompletos(filas: ReportePagosIncompletos) {
 // 13. Pagos por Deporte (HU-25)
 export function renderPagosPorDeporte(filas: ReportePagosPorDeporte) {
   if (!filas || !Array.isArray(filas)) return <p>No hay datos disponibles.</p>;
-  if (filas.length === 0)
-    return <p>No hay pagos de deportes para los filtros seleccionados.</p>;
+  if (filas.length === 0) return <p>No hay pagos de deportes para los filtros seleccionados.</p>;
 
   const totalImputado = filas.reduce((n, f) => n + Number(f.imputado), 0);
   const totalPagado = filas.reduce((n, f) => n + Number(f.pagado), 0);
@@ -1025,8 +1021,7 @@ export function renderPagosPorDeporte(filas: ReportePagosPorDeporte) {
 // 14. Pagos por Recorrido de Transporte (HU-26)
 export function renderPagosPorTransporte(filas: ReportePagosPorTransporte) {
   if (!filas || !Array.isArray(filas)) return <p>No hay datos disponibles.</p>;
-  if (filas.length === 0)
-    return <p>No hay pagos de transporte para los filtros seleccionados.</p>;
+  if (filas.length === 0) return <p>No hay pagos de transporte para los filtros seleccionados.</p>;
 
   const totalImputado = filas.reduce((n, f) => n + Number(f.imputado), 0);
   const totalPagado = filas.reduce((n, f) => n + Number(f.pagado), 0);

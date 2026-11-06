@@ -44,11 +44,13 @@ export function PortalPage() {
         : user.rol === 'alumno'
           ? 'Mi legajo y actividades'
           : 'Mi actividad',
-    cuotas: 'Cuotas',
-    evaluaciones: 'Evaluaciones',
-    novedades: 'Novedades',
-    seguridad: 'Mi cuenta',
   };
+  // El alumno no administra cuotas: según RF-01.5 solo consulta sus
+  // inscripciones y su cuenta. El backend también le responde 403 en /facturas.
+  if (user.rol === 'padre') tabs.cuotas = 'Cuotas';
+  tabs.evaluaciones = 'Evaluaciones';
+  tabs.novedades = 'Novedades';
+  tabs.seguridad = 'Mi cuenta';
   if (user.rol === 'docente') tabs.asistencias = 'Asistencias';
   // HU-06: navegación móvil acotada por rol — el padre navega por sus hijos
   // (selector por hijo dentro de "Mis hijos"), el alumno solo se ve a sí mismo;
@@ -65,7 +67,6 @@ export function PortalPage() {
       : user.rol === 'alumno'
         ? [
             { key: 'inicio', label: 'Mi perfil', icon: UserRound },
-            { key: 'cuotas', label: 'Cuotas', icon: GraduationCap },
             { key: 'evaluaciones', label: 'Evaluaciones', icon: GraduationCap },
             { key: 'novedades', label: 'Novedades', icon: Bell },
             { key: 'seguridad', label: 'Cuenta', icon: Settings },
@@ -123,8 +124,6 @@ export function PortalPage() {
       {tab === 'cuotas' &&
         (user.rol === 'padre' ? (
           <StudentFeesPanel />
-        ) : user.rol === 'alumno' && user.referencia_id ? (
-          <StudentFeesPanel alumnoIdFijo={user.referencia_id} />
         ) : (
           <Feedback>Tu perfil no tiene cuotas asignadas.</Feedback>
         ))}
@@ -149,9 +148,7 @@ export function PortalPage() {
             <Feedback error>{logoutError}</Feedback>
             <Button
               variant="outline"
-              onClick={() =>
-                logout().catch((e: Error) => setLogoutError(e.message))
-              }
+              onClick={() => logout().catch((e: Error) => setLogoutError(e.message))}
             >
               <LogOut size={16} /> Cerrar sesión
             </Button>

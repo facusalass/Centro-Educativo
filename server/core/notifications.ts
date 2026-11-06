@@ -132,6 +132,14 @@ export async function deliverPending() {
           estado_email: 'enviado',
           intentos: item.intentos + 1,
           ultimo_error: '',
+          // El token de recuperación viaja en el cuerpo del correo; una vez
+          // enviado, se redacta para no dejarlo indefinidamente en la cola.
+          ...(item.titulo === 'Recuperación de contraseña'
+            ? {
+                mensaje:
+                  'Enlace de recuperación enviado. Si necesitás otro, solicitá uno nuevo desde el portal.',
+              }
+            : {}),
         });
         enviados++;
       } catch {

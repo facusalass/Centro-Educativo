@@ -11,6 +11,11 @@ import { fileURLToPath } from 'node:url';
 
 const { Pool } = pg;
 
+// Última versión de `schema_migrations` que este código necesita. Si se agrega
+// una migración nueva hay que subir esta constante: la compuerta de arranque
+// usa este valor para no saltearse migraciones en bases ya inicializadas.
+export const LATEST_SCHEMA_VERSION = 7;
+
 const postgresUrl =
   process.env.DATABASE_URL ??
   process.env.POSTGRES_URL ??
@@ -256,7 +261,8 @@ export async function initializeDatabase() {
   if (process.env.SEED_DEMO !== 'true') {
     try {
       if (
-        Number((await get('SELECT MAX(version) AS version FROM schema_migrations'))?.version) >= 5
+        Number((await get('SELECT MAX(version) AS version FROM schema_migrations'))?.version) >=
+        LATEST_SCHEMA_VERSION
       )
         return;
     } catch (error) {

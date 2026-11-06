@@ -29,9 +29,23 @@ export default defineConfig({
         ],
       },
       // Precache del shell estático con los valores de fábrica de Workbox.
-      // No se declara runtimeCaching: las respuestas de /api no se cachean.
+      // Solo se cachean GET públicos: las respuestas financieras y de sesión
+      // nunca se guardan en el dispositivo.
       workbox: {
         navigateFallback: '/index.html',
+        runtimeCaching: [
+          {
+            urlPattern:
+              /\/api\/(?:noticias|actividades|galeria|servicios|instalaciones|niveles|opiniones)(?:\/|$)/,
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'api-publica',
+              networkTimeoutSeconds: 3,
+              expiration: { maxEntries: 40, maxAgeSeconds: 86400 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+        ],
       },
     }),
   ],

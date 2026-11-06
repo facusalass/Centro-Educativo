@@ -148,9 +148,7 @@ test.describe.serial('facturación, comprobantes y reportes financieros (T06)', 
       expect((await generado.json()).creadas, `facturas de ${periodo}`).toBeGreaterThan(0);
     }
 
-    const listado = await (
-      await sesiones.admin.get(`/api/facturas?alumno_id=${alumnoId}`)
-    ).json();
+    const listado = await (await sesiones.admin.get(`/api/facturas?alumno_id=${alumnoId}`)).json();
     const detalle = async (periodo: string): Promise<FacturaDetalle> => {
       const factura = listado.find((f: { periodo: string }) => f.periodo === periodo);
       expect(factura, `factura de ${periodo}`).toBeTruthy();
@@ -179,9 +177,7 @@ test.describe.serial('facturación, comprobantes y reportes financieros (T06)', 
   });
 
   test.afterAll(async () => {
-    await Promise.all(
-      Object.values(contexts).map((contexto) => contexto?.close().catch(() => {})),
-    );
+    await Promise.all(Object.values(contexts).map((contexto) => contexto?.close().catch(() => {})));
     if (directorio) await rm(directorio, { recursive: true, force: true });
   });
 
@@ -277,7 +273,11 @@ test.describe.serial('facturación, comprobantes y reportes financieros (T06)', 
       // El documento servido es un PDF real (no un HTML de error descargado).
       const documento = await page.request.get(`/api/facturas/${facturaPagada.id}/pdf`);
       expect(documento.status()).toBe(200);
-      expect(Buffer.from(await documento.body()).subarray(0, 5).toString()).toBe('%PDF-');
+      expect(
+        Buffer.from(await documento.body())
+          .subarray(0, 5)
+          .toString(),
+      ).toBe('%PDF-');
     } finally {
       await page.close();
     }
@@ -307,9 +307,7 @@ test.describe.serial('facturación, comprobantes y reportes financieros (T06)', 
       await page.goto('/admin');
       await expect(page.getByRole('heading', { name: 'Gestión institucional' })).toBeVisible();
       await page.getByRole('button', { name: 'Validación de pagos', exact: true }).click();
-      await expect(
-        page.getByRole('heading', { name: 'Validación de comprobantes' }),
-      ).toBeVisible();
+      await expect(page.getByRole('heading', { name: 'Validación de comprobantes' })).toBeVisible();
 
       const filaAprobada = page.locator('article.notice').filter({ hasText: ARCHIVO_PAGADA });
       const filaPendiente = page.locator('article.notice').filter({ hasText: ARCHIVO_PENDIENTE });
@@ -337,16 +335,16 @@ test.describe.serial('facturación, comprobantes y reportes financieros (T06)', 
       await expect(filaAprobada).toHaveCount(1);
       await filaAprobada.getByRole('button', { name: 'Aprobar' }).click();
       await expect(page.getByRole('alert')).toHaveCount(0);
-      await expect(
-        page.locator('article.notice').filter({ hasText: ARCHIVO_PAGADA }),
-      ).toHaveCount(0);
+      await expect(page.locator('article.notice').filter({ hasText: ARCHIVO_PAGADA })).toHaveCount(
+        0,
+      );
       await expect(
         page.locator('article.notice').filter({ hasText: ARCHIVO_PENDIENTE }),
       ).toHaveCount(1);
       await estado.selectOption('aprobado');
-      await expect(
-        page.locator('article.notice').filter({ hasText: ARCHIVO_PAGADA }),
-      ).toHaveCount(1);
+      await expect(page.locator('article.notice').filter({ hasText: ARCHIVO_PAGADA })).toHaveCount(
+        1,
+      );
 
       // La aprobación es ACID: saldo en cero y recibo emitido por el monto imputado.
       const detalle = (await (
@@ -427,12 +425,13 @@ test.describe.serial('facturación, comprobantes y reportes financieros (T06)', 
   });
 
   test('el RBAC bloquea las rutas financieras por rol en la UI y en la API', async () => {
-    const permiso = 'Tu perfil no tiene permiso para esta operación.';
     const alumno = await abrir('alumno');
     try {
       await expect(alumno.getByRole('heading', { name: 'Portal estudiantil' })).toBeVisible();
-      await navPortal(alumno).getByRole('button', { name: 'Cuotas', exact: true }).click();
-      await expect(alumno.getByRole('alert')).toHaveText(permiso);
+      // RF-01.5: el alumno no tiene pestaña de cuotas; el backend igual responde 403.
+      await expect(
+        navPortal(alumno).getByRole('button', { name: 'Cuotas', exact: true }),
+      ).toHaveCount(0);
       expect((await alumno.request.get('/api/facturas')).status()).toBe(403);
       expect((await alumno.request.get(`/api/facturas/${facturaPagada.id}`)).status()).toBe(403);
       expect((await alumno.request.get(`/api/deuda/alumno/${alumnoId}`)).status()).toBe(403);
