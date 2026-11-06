@@ -136,7 +136,7 @@ export function registerPaymentsRoutes(app: Express) {
         await db.run('UPDATE pagos_comprobantes SET estado = ?, motivo_rechazo = ?, validado_por = ?, fecha_validacion = ? WHERE id = ?', ['rechazado', motivo, req.user!.id, new Date().toISOString(), id]);
         const puente = await db.all('SELECT * FROM pago_comprobante_items WHERE comprobante_id = ?', [id]);
         for (const p of puente) {
-          const otros = await db.get('SELECT id FROM pagos_comprobantes c JOIN pago_comprobante_items i ON i.comprobante_id = c.id WHERE i.factura_item_id = ? AND c.estado = ? AND c.id <> ? LIMIT 1', [p.factura_item_id, 'en_revision', id]);
+          const otros = await db.get('SELECT c.id FROM pagos_comprobantes c JOIN pago_comprobante_items i ON i.comprobante_id = c.id WHERE i.factura_item_id = ? AND c.estado = ? AND c.id <> ? LIMIT 1', [p.factura_item_id, 'en_revision', id]);
           if (!otros) await db.run("UPDATE factura_items SET estado = 'pendiente' WHERE id = ?", [p.factura_item_id]);
         }
         await recomputeFactura(comp.factura_id);

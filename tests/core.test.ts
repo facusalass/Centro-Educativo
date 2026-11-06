@@ -1488,3 +1488,36 @@ test('T05: RBAC y validación de parámetros en los reportes financieros', async
   assert.equal((await api('/reportes/pagos-por-transporte?recorrido_id=abc', admin)).status, 400);
   assert.equal((await api('/reportes/pagos-por-transporte?hasta=x', admin)).status, 400);
 });
+
+test('T03 el rechazo libera los conceptos y no deja el comprobante en revisión', async () => {
+  const periodo = '2026-12';
+  assert.equal((await api('/facturas/generar-periodo', admin, 'POST', { periodo })).status, 201);
+  const facs = (await api(`/facturas?alumno_id=${otherChild}`, otherParent)).data;
+  const fac = facs.find((f: { periodo: string }) => f.periodo === periodo);
+  assert.ok(fac, JSON.stringify(facs));
+  const item = (await api(`/facturas/${fac.id}`, otherParent)).data.items.find(
+    (i: { monto: number; monto_pagado: number }) => i.monto - i.monto_pagado > 0,
+  );
+  assert.ok(item);
+  const png = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+  const sub = await api(`/facturas/${fac.id}/comprobantes`, otherParent, 'POST', {
+    item_ids: [item.id], archivo_nombre: 'rechazo.png', archivo_mime: 'image/png', archivo_contenido: png,
+    monto_declarado: Math.round((item.monto - item.monto_pagado) * 100) / 100,
+  });
+  assert.equal(sub.status, 201, JSON.stringify(sub.data));
+  const rec = await api(`/admin/comprobantes/${sub.data.id}/validar`, admin, 'PUT', {
+    accion: 'rechazar',
+    motivo_rechazo: 'Comprobante ilegible',
+  });
+  assert.equal(rec.status, 200, JSON.stringify(rec.data));
+  assert.equal(rec.data.estado, 'rechazado');
+  const fac2 = (await api(`/facturas/${fac.id}`, otherParent)).data;
+  const it2 = fac2.items.find((i: { id: number }) => i.id === item.id);
+  assert.equal(it2.estado, 'pendiente');
+  assert.equal(fac2.saldo_pendiente, fac.total);
+  const otra = await api(`/admin/comprobantes/${sub.data.id}/validar`, admin, 'PUT', {
+    accion: 'rechazar',
+    motivo_rechazo: 'Otro motivo',
+  });
+  assert.equal(otra.status, 400);
+});
