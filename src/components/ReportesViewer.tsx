@@ -180,6 +180,11 @@ export function ReportesViewer({ alumnos, docentes, deportes, grupos, recorridos
             <option value="docentes-por-nivel">7. Docentes por Nivel Educativo</option>
             <option value="alumno">8. Ficha Integral por Alumno</option>
             <option value="docente">9. Carga Horaria por Docente</option>
+            <option value="ingresos-periodo">10. Ingresos por Período</option>
+            <option value="pagos-completos">11. Pagos Completos</option>
+            <option value="pagos-incompletos">12. Pagos Incompletos</option>
+            <option value="pagos-por-deporte">13. Pagos por Deporte</option>
+            <option value="pagos-por-transporte">14. Pagos por Transporte</option>
           </select>
 
           {tipo === 'alumno' && (

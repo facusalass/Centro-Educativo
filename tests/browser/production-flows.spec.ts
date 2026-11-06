@@ -8,7 +8,7 @@ async function login(page: Page, role = 'admin') {
   await page.getByRole('button', { name: 'Ingresar', exact: true }).click();
 }
 
-test('los nueve reportes cargan y la vista de impresión genera un PDF real', async ({ page }) => {
+test('los catorce reportes cargan y la vista de impresión genera un PDF real', async ({ page }) => {
   const uncaught: string[] = [];
   page.on('pageerror', (error) => uncaught.push(error.message));
   await login(page);
@@ -17,7 +17,7 @@ test('los nueve reportes cargan y la vista de impresión genera un PDF real', as
   const types = await selector
     .locator('option')
     .evaluateAll((nodes) => nodes.map((node) => (node as HTMLOptionElement).value));
-  expect(types).toHaveLength(9);
+  expect(types).toHaveLength(14);
   for (const type of types) {
     await selector.selectOption(type);
     await expect(page.locator('.admin-status')).toHaveText('Reporte actualizado.');
