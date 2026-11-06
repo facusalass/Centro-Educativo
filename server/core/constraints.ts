@@ -250,4 +250,33 @@ export async function migrateConstraints() {
       new Date().toISOString(),
     ]);
   });
+  await db.transaction(async () => {
+    if (await db.get('SELECT version FROM schema_migrations WHERE version = 7')) return;
+    const cols = await db.all('SELECT name FROM pragma_table_info(?)', ['notificaciones']).catch(() => []);
+    const names = new Set((cols as { name: string }[]).map((c) => c.name));
+    const addCol = async (sql: string, col: string) => {
+      if (names.has(col)) return;
+      try {
+        await db.exec(sql);
+      } catch {
+        const check = databaseMode === 'postgres'
+          ? await db.get('SELECT column_name FROM information_schema.columns WHERE table_name = ? AND column_name = ?', ['notificaciones', col])
+          : undefined;
+        if (!check && databaseMode === 'sqlite') throw new Error(`No se pudo agregar la columna ${col}.`);
+      }
+    };
+    if (databaseMode === 'postgres') {
+      await db.exec(`ALTER TABLE notificaciones ADD COLUMN IF NOT EXISTS archivo_nombre TEXT;
+        ALTER TABLE notificaciones ADD COLUMN IF NOT EXISTS archivo_mime TEXT;
+        ALTER TABLE notificaciones ADD COLUMN IF NOT EXISTS archivo_contenido TEXT;`);
+    } else {
+      await addCol('ALTER TABLE notificaciones ADD COLUMN archivo_nombre TEXT', 'archivo_nombre');
+      await addCol('ALTER TABLE notificaciones ADD COLUMN archivo_mime TEXT', 'archivo_mime');
+      await addCol('ALTER TABLE notificaciones ADD COLUMN archivo_contenido TEXT', 'archivo_contenido');
+    }
+    await db.run('INSERT INTO schema_migrations (version, applied_at) VALUES (?, ?)', [
+      7,
+      new Date().toISOString(),
+    ]);
+  });
 }

@@ -4,6 +4,7 @@ import { assert, idOf } from './errors.js';
 import { audit, requireStudent } from './security.js';
 import { objectBody } from './validation.js';
 import { monthlyQuote } from './fees.js';
+import { facturaPdfBuffer, reciboPdfBuffer } from './documents.js';
 
 const PERIODO_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
 
@@ -227,14 +228,89 @@ export function registerBillingRoutes(app: Express) {
       'Tu perfil no tiene permiso para esta operación.',
     );
     const alumno = await requireStudent(req, idOf(req.params.alumnoId));
+    const q = req.query as Record<string, unknown>;
+    const desde = typeof q.desde === 'string' && q.desde ? q.desde : undefined;
+    const hasta = typeof q.hasta === 'string' && q.hasta ? q.hasta : undefined;
+    const compClauses = ['f.alumno_id = ?'];
+    const compParams: unknown[] = [alumno.id];
+    if (desde) {
+      compClauses.push('c.fecha_presentacion >= ?');
+      compParams.push(desde);
+    }
+    if (hasta) {
+      compClauses.push('c.fecha_presentacion <= ?');
+      compParams.push(hasta);
+    }
+    const recClauses = ['alumno_id = ?'];
+    const recParams: unknown[] = [alumno.id];
+    if (desde) {
+      recClauses.push('fecha_emision >= ?');
+      recParams.push(desde);
+    }
+    if (hasta) {
+      recClauses.push('fecha_emision <= ?');
+      recParams.push(hasta);
+    }
     const comprobantes = await db.all(
       `SELECT c.* FROM pagos_comprobantes c JOIN facturas f ON f.id = c.factura_id
-       WHERE f.alumno_id = ? ORDER BY c.id DESC`,
+       WHERE ${compClauses.join(' AND ')} ORDER BY c.id DESC`,
+      compParams,
+    );
+    const recibos = await db.all(`SELECT * FROM recibos WHERE ${recClauses.join(' AND ')} ORDER BY id DESC`, recParams);
+    res.json({ comprobantes, recibos });
+  });
+
+  app.get('/api/deuda/alumno/:alumnoId', async (req, res) => {
+    assert(
+      ['admin', 'padre'].includes(req.user!.rol),
+      403,
+      'Tu perfil no tiene permiso para esta operación.',
+    );
+    const alumno = await requireStudent(req, idOf(req.params.alumnoId));
+    const facturas = await db.all(
+      'SELECT * FROM facturas WHERE alumno_id = ? AND saldo_pendiente > 0 ORDER BY fecha_vencimiento, id',
       [alumno.id],
     );
-    const recibos = await db.all('SELECT * FROM recibos WHERE alumno_id = ? ORDER BY id DESC', [
-      alumno.id,
-    ]);
-    res.json({ comprobantes, recibos });
+    const detalle = await Promise.all(
+      facturas.map(async (f: any) => ({
+        ...f,
+        estado: displayEstado(f),
+        items: await db.all('SELECT * FROM factura_items WHERE factura_id = ? ORDER BY id', [f.id]),
+      })),
+    );
+    const total = round2(detalle.reduce((n: number, f: any) => n + Number(f.saldo_pendiente), 0));
+    res.json({ alumno_id: alumno.id, total_deuda: total, facturas: detalle });
+  });
+
+  app.get('/api/facturas/:id/pdf', async (req, res) => {
+    assert(
+      ['admin', 'padre'].includes(req.user!.rol),
+      403,
+      'Tu perfil no tiene permiso para esta operación.',
+    );
+    const factura = await db.get('SELECT * FROM facturas WHERE id = ?', [idOf(req.params.id)]);
+    assert(factura, 404, 'Factura no encontrada.');
+    const alumno = await requireStudent(req, factura.alumno_id);
+    const items = await db.all('SELECT * FROM factura_items WHERE factura_id = ? ORDER BY id', [factura.id]);
+    const pdf = await facturaPdfBuffer({ ...factura, estado: displayEstado(factura) }, items as { descripcion: string; monto: number }[], alumno);
+    res.type('application/pdf');
+    res.set('Content-Disposition', `inline; filename="${factura.numero_factura}.pdf"`);
+    res.send(pdf);
+  });
+
+  app.get('/api/recibos/:id/pdf', async (req, res) => {
+    assert(
+      ['admin', 'padre'].includes(req.user!.rol),
+      403,
+      'Tu perfil no tiene permiso para esta operación.',
+    );
+    const recibo = await db.get('SELECT * FROM recibos WHERE id = ?', [idOf(req.params.id)]);
+    assert(recibo, 404, 'Recibo no encontrado.');
+    const factura = await db.get('SELECT * FROM facturas WHERE id = ?', [recibo.factura_id]);
+    const alumno = await requireStudent(req, recibo.alumno_id);
+    const pdf = await reciboPdfBuffer(recibo, factura, alumno);
+    res.type('application/pdf');
+    res.set('Content-Disposition', `inline; filename="${recibo.numero_recibo}.pdf"`);
+    res.send(pdf);
   });
 }

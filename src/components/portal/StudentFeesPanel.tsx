@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { request } from '../../services/api';
+import { request, requestBinary } from '../../services/http';
 import { Feedback } from '../PortalShell';
 import type { Alumno } from '../../types';
 
@@ -46,6 +46,16 @@ export type Recibo = {
 const fmt = (n: number) =>
   Number(n).toLocaleString('es-AR', { style: 'currency', currency: 'ARS' });
 
+async function descargarPdf(path: string, nombre: string) {
+  const blob = await requestBinary(path);
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = nombre;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 export function StudentFeesPanel({ alumnoIdFijo }: { alumnoIdFijo?: number }) {
   const [hijos, setHijos] = useState<Alumno[]>([]);
   const [alumnoId, setAlumnoId] = useState(alumnoIdFijo ? String(alumnoIdFijo) : '');
@@ -53,6 +63,9 @@ export function StudentFeesPanel({ alumnoIdFijo }: { alumnoIdFijo?: number }) {
   const [comprobantes, setComprobantes] = useState<PagoComprobante[]>([]);
   const [recibos, setRecibos] = useState<Recibo[]>([]);
   const [filtro, setFiltro] = useState('');
+  const [desde, setDesde] = useState('');
+  const [hasta, setHasta] = useState('');
+  const [deuda, setDeuda] = useState<{ total_deuda: number; facturas: Factura[] } | null>(null);
   const [error, setError] = useState('');
   const [cargando, setCargando] = useState(true);
 
@@ -73,20 +86,29 @@ export function StudentFeesPanel({ alumnoIdFijo }: { alumnoIdFijo?: number }) {
     }
     setCargando(true);
     setError('');
+    const params = new URLSearchParams({ alumno_id: alumnoId });
+    if (desde) params.set('desde', desde);
+    if (hasta) params.set('hasta', hasta);
+    const pagosParams = new URLSearchParams();
+    if (desde) pagosParams.set('desde', desde);
+    if (hasta) pagosParams.set('hasta', hasta);
+    const pagosQs = pagosParams.toString();
     Promise.all([
-      request<Factura[]>(`/facturas?alumno_id=${alumnoId}`),
+      request<Factura[]>(`/facturas?${params.toString()}`),
       request<{ comprobantes: PagoComprobante[]; recibos: Recibo[] }>(
-        `/pagos/alumno/${alumnoId}`,
+        `/pagos/alumno/${alumnoId}${pagosQs ? `?${pagosQs}` : ''}`,
       ),
+      request<{ total_deuda: number; facturas: Factura[] }>(`/deuda/alumno/${alumnoId}`).catch(() => null),
     ])
-      .then(([facs, pagos]) => {
+      .then(([facs, pagos, debt]) => {
         setFacturas(facs);
+        setDeuda(debt);
         setComprobantes(pagos.comprobantes);
         setRecibos(pagos.recibos);
       })
       .catch((e: Error) => setError(e.message))
       .finally(() => setCargando(false));
-  }, [alumnoId]);
+  }, [alumnoId, desde, hasta]);
 
   const visibles = filtro ? facturas.filter((f) => f.estado === filtro) : facturas;
   const pendientes = facturas.filter((f) => ['pendiente', 'parcial', 'en_revision', 'vencida'].includes(f.estado));
@@ -133,7 +155,19 @@ export function StudentFeesPanel({ alumnoIdFijo }: { alumnoIdFijo?: number }) {
                   <option value="pagada">Pagadas</option>
                 </select>
               </label>
+              <label>
+                Desde
+                <input type="date" value={desde} onChange={(e) => setDesde(e.target.value)} />
+              </label>
+              <label>
+                Hasta
+                <input type="date" value={hasta} onChange={(e) => setHasta(e.target.value)} />
+              </label>
+              <button type="button" onClick={() => window.print()}>Imprimir</button>
             </div>
+            {deuda && (
+              <p>Deuda itemizada: {fmt(deuda.total_deuda)} en {deuda.facturas.length} factura(s).</p>
+            )}
             {!visibles.length && <p className="empty-state">No hay facturas para este filtro.</p>}
             {visibles.map((f) => (
               <article className="notice" key={f.id}>
@@ -146,8 +180,19 @@ export function StudentFeesPanel({ alumnoIdFijo }: { alumnoIdFijo?: number }) {
                     vence {f.fecha_vencimiento?.slice(0, 10)}
                   </p>
                 </div>
+                <button type="button" onClick={() => void descargarPdf(`/facturas/${f.id}/pdf`, `${f.numero_factura}.pdf`)}>PDF factura</button>
                 <UploadComprobante facturaId={f.id} onSubido={() => window.location.reload()} />
               </article>
+            ))}
+          </section>
+          <section className="panel-card">
+            <h2>Recibos ({recibos.length})</h2>
+            {!recibos.length && <p className="empty-state">Sin recibos en el rango.</p>}
+            {recibos.map((r) => (
+              <p key={r.id}>
+                {r.numero_recibo} · {fmt(r.monto_total)}{' '}
+                <button type="button" onClick={() => void descargarPdf(`/recibos/${r.id}/pdf`, `${r.numero_recibo}.pdf`)}>PDF recibo</button>
+              </p>
             ))}
           </section>
           <section className="panel-card">

@@ -49,3 +49,25 @@ export async function request<T>(path: string, options: RequestInit = {}): Promi
   }
   return body as T;
 }
+
+export async function requestBinary(path: string, options: RequestInit = {}): Promise<Blob> {
+  let response: Response;
+  try {
+    response = await fetch(`${API_URL}${path}`, { ...options, credentials: 'include' });
+  } catch (failure) {
+    if (options.signal?.aborted) throw failure;
+    throw new ApiError(0, 'No se pudo conectar con el servidor. Revisá tu conexión y reintentá.');
+  }
+  if (!response.ok) {
+    let message = 'No se pudo completar la solicitud.';
+    try {
+      const data = await response.clone().json();
+      if (data && typeof data.error === 'string') message = data.error;
+    } catch {
+      /* respuesta no JSON */
+    }
+    if (response.status === 401) window.dispatchEvent(new Event('session-expired'));
+    throw new ApiError(response.status, message);
+  }
+  return response.blob();
+}

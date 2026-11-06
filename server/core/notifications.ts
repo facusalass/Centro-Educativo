@@ -46,6 +46,37 @@ export const publish = async (event: SchoolEvent) => {
   for (const observer of observers) await observer.notify(event);
 };
 
+export async function queueEmail(input: {
+  usuario_id: number;
+  email: string;
+  titulo: string;
+  mensaje: string;
+  archivo_nombre?: string;
+  archivo_mime?: string;
+  archivo_contenido?: string;
+}): Promise<number> {
+  try {
+    return await db.insert('notificaciones', {
+      usuario_id: input.usuario_id,
+      titulo: input.titulo,
+      mensaje: input.mensaje,
+      email: input.email,
+      fecha: new Date().toISOString(),
+      archivo_nombre: input.archivo_nombre ?? null,
+      archivo_mime: input.archivo_mime ?? null,
+      archivo_contenido: input.archivo_contenido ?? null,
+    });
+  } catch {
+    return await db.insert('notificaciones', {
+      usuario_id: input.usuario_id,
+      titulo: input.titulo,
+      mensaje: input.mensaje,
+      email: input.email,
+      fecha: new Date().toISOString(),
+    });
+  }
+}
+
 let sending = false;
 export async function deliverPending() {
   if (sending || !process.env.SMTP_HOST || !process.env.SMTP_FROM)
@@ -85,6 +116,17 @@ export async function deliverPending() {
           subject: item.titulo,
           text: item.mensaje,
           messageId: `<educar-${item.id}@${process.env.MAIL_MESSAGE_DOMAIN || 'educar.local'}>`,
+          ...(item.archivo_contenido && item.archivo_nombre
+            ? {
+                attachments: [
+                  {
+                    filename: item.archivo_nombre,
+                    contentType: item.archivo_mime || 'application/pdf',
+                    content: Buffer.from(String(item.archivo_contenido), 'base64'),
+                  },
+                ],
+              }
+            : {}),
         });
         await db.update('notificaciones', item.id, {
           estado_email: 'enviado',

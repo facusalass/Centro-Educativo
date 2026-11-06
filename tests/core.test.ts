@@ -1148,3 +1148,57 @@ test('T03 comprobantes: subida, validación ACID y archivo con RBAC', async () =
   const pagos = await api(`/pagos/alumno/${otherChild}`, otherParent);
   assert.ok(pagos.data.recibos.length >= 1);
 });
+
+test('T04 deuda, PDFs y jobs idempotentes con RBAC', async () => {
+  const periodo = '2026-05';
+  const gen = await api('/facturas/generar-periodo', admin, 'POST', { periodo });
+  assert.equal(gen.status, 201, JSON.stringify(gen.data));
+  const deudaPadre = await api(`/deuda/alumno/${otherChild}`, otherParent);
+  assert.equal(deudaPadre.status, 200, JSON.stringify(deudaPadre.data));
+  assert.ok(deudaPadre.data.total_deuda > 0);
+  assert.ok(Array.isArray(deudaPadre.data.facturas) && deudaPadre.data.facturas.length >= 1);
+  assert.ok(Array.isArray(deudaPadre.data.facturas[0].items));
+  // parent (familia1) quedó revocado por el test de logout: el cruce se prueba con otherParent sobre childId.
+  assert.equal((await api(`/deuda/alumno/${childId}`, otherParent)).status, 403);
+  assert.equal((await api(`/deuda/alumno/${otherChild}`)).status, 401);
+  const deudaAdmin = await api(`/deuda/alumno/${otherChild}`, admin);
+  assert.equal(deudaAdmin.status, 200);
+  const fac = deudaPadre.data.facturas.find((r: { periodo: string }) => r.periodo === periodo);
+  assert.ok(fac, JSON.stringify(deudaPadre.data.facturas.map((r: { periodo: string }) => r.periodo)));
+  const pdfOk = await fetch(`${base}/facturas/${fac.id}/pdf`, { headers: { Cookie: otherParent } });
+  assert.equal(pdfOk.status, 200);
+  assert.match(pdfOk.headers.get('content-type') || '', /application\/pdf/);
+  const pdfBytes = Buffer.from(await pdfOk.arrayBuffer());
+  assert.equal(pdfBytes.subarray(0, 4).toString(), '%PDF');
+  const deudaOtraFamilia = await api(`/deuda/alumno/${childId}`, admin);
+  const facOtra = deudaOtraFamilia.data.facturas.find((r: { periodo: string }) => r.periodo === periodo);
+  if (facOtra) {
+    assert.equal((await fetch(`${base}/facturas/${facOtra.id}/pdf`, { headers: { Cookie: otherParent } })).status, 403);
+  }
+  assert.equal((await fetch(`${base}/facturas/${fac.id}/pdf`)).status, 401);
+  const pagosRango = await api(`/pagos/alumno/${otherChild}?desde=2026-01-01&hasta=2026-12-31`, otherParent);
+  assert.equal(pagosRango.status, 200);
+  assert.ok(Array.isArray(pagosRango.data.comprobantes) && Array.isArray(pagosRango.data.recibos));
+  const job1 = await api('/jobs/recordatorio-fin-mes', admin, 'POST', { periodo });
+  assert.equal(job1.status, 201, JSON.stringify(job1.data));
+  assert.ok(job1.data.enviadas >= 1, JSON.stringify(job1.data));
+  const job1Retry = await api('/jobs/recordatorio-fin-mes', admin, 'POST', { periodo });
+  assert.equal(job1Retry.status, 201);
+  assert.equal(job1Retry.data.enviadas, 0);
+  assert.ok(job1Retry.data.omitidas >= 1);
+  assert.equal((await api('/jobs/recordatorio-fin-mes', otherParent, 'POST', { periodo })).status, 403);
+  assert.equal((await api('/jobs/recordatorio-fin-mes', admin, 'POST', { periodo: '2026-13' })).status, 400);
+  const job2 = await api('/jobs/aviso-deuda-dia-20', admin, 'POST', { periodo });
+  assert.equal(job2.status, 201, JSON.stringify(job2.data));
+  assert.ok(job2.data.enviadas >= 1);
+  const logs = await db.all('SELECT * FROM avisos_facturacion_log WHERE periodo = ?', [periodo]);
+  assert.ok(logs.length >= 2);
+  assert.ok(logs.some((r: { tipo_aviso: string }) => r.tipo_aviso === 'fin_de_mes'));
+  assert.ok(logs.some((r: { tipo_aviso: string }) => r.tipo_aviso === 'deuda_dia_20'));
+  const reciboRow = await db.get('SELECT id FROM recibos ORDER BY id DESC LIMIT 1');
+  if (reciboRow) {
+    const pdfRec = await fetch(`${base}/recibos/${reciboRow.id}/pdf`, { headers: { Cookie: admin } });
+    assert.equal(pdfRec.status, 200);
+    assert.match(pdfRec.headers.get('content-type') || '', /application\/pdf/);
+  }
+});
