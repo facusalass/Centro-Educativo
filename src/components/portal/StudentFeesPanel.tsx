@@ -166,7 +166,19 @@ export function StudentFeesPanel({ alumnoIdFijo }: { alumnoIdFijo?: number }) {
               <button type="button" onClick={() => window.print()}>Imprimir</button>
             </div>
             {deuda && (
-              <p>Deuda itemizada: {fmt(deuda.total_deuda)} en {deuda.facturas.length} factura(s).</p>
+              <div>
+                <p>Deuda itemizada: {fmt(deuda.total_deuda)} en {deuda.facturas.length} factura(s).</p>
+                {deuda.facturas.map((f) => (
+                  <div key={f.id}>
+                    <strong>{f.numero_factura} · {f.periodo} — saldo {fmt(f.saldo_pendiente)}</strong>
+                    <ul>
+                      {(f as unknown as { items?: { id: number; descripcion: string; monto: number; monto_pagado: number }[] }).items?.map((it) => (
+                        <li key={it.id}>{it.descripcion} — {fmt(it.monto - it.monto_pagado)} (de {fmt(it.monto)})</li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </div>
             )}
             {!visibles.length && <p className="empty-state">No hay facturas para este filtro.</p>}
             {visibles.map((f) => (

@@ -63,7 +63,8 @@ The existing system on `main` (`55f3ebe`) provides complete academic, attendance
 - **Session close (2026-11-05, session 2):** T01 complete and verified (39/39 `npm test`, clean `npm run build`, security verify PASS on unit b). Tracking-doc update committed as `6f5a051`. No T02 work started per user stop instruction.
 - **T02 executed:** Backend `server/core/billing.ts` + `registerBillingRoutes` + RBAC padre allows + frontend `StudentFeesPanel.tsx` + Portal `Cuotas` tab + api/types + 2 tests (41/41 `npm test`, clean `npm run build`). Vencimiento = día 10 del mes siguiente al período; `desde/hasta` filtran `fecha_emision`; `vencida` derivada en lectura, nunca persistida.
 - **T03 executed:** FK fix (`padres`→`usuarios_acceso` + v6 rebuild), `payments.ts` 4 rutas, body 8 MB scoped, RBAC padre, frontend upload + `PaymentProofsQueue`, tests 42/41→42/42, build clean.
-- **Next Step:** Execute **T04 (Sprint M4 — `HU-18` to `HU-21`)**.
+- **T04 executed:** `a392301` deuda/PDFs/jobs + `finDeDia` fix + panel por-concepto; verify PASS B1/B2; 46/46 `npm test`, `npm run build` limpio.
+- **Next Step:** Execute **T05 (Sprint M5 — `HU-22` to `HU-26`)**.
 
 ## Log
 - **L1 (2026-11-04, session 1 — Antigravity handoff):** "Retomá la feature pwa-mobile sobre la rama feat/pwa-mobile leyendo Engram (odd/pwa-mobile/tasks), odd/tasks/pwa-mobile.md y docs/PLAN_DE_TRABAJO_PWA.md, y arrancá con la tarea T01 (Sprint M1)." Original Part 3 requirements: `docs/tpi_scenario_mobileApp.md`.

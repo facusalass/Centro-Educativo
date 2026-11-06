@@ -14,6 +14,10 @@ function vencimientoForPeriodo(periodo: string): string {
   return next.toISOString().slice(0, 10);
 }
 
+export function finDeDia(hasta: string): string {
+  return /^\d{4}-\d{2}-\d{2}$/.test(hasta) ? `${hasta}T23:59:59.999Z` : hasta;
+}
+
 export function round2(n: number): number {
   return Math.round(n * 100) / 100;
 }
@@ -192,7 +196,7 @@ export function registerBillingRoutes(app: Express) {
     }
     if (typeof q.hasta === 'string' && q.hasta) {
       clauses.push('fecha_emision <= ?');
-      params.push(q.hasta);
+      params.push(finDeDia(q.hasta));
     }
     const rows = await db.all(
       `SELECT * FROM facturas ${clauses.length ? `WHERE ${clauses.join(' AND ')}` : ''} ORDER BY fecha_emision DESC, id DESC`,
@@ -239,7 +243,7 @@ export function registerBillingRoutes(app: Express) {
     }
     if (hasta) {
       compClauses.push('c.fecha_presentacion <= ?');
-      compParams.push(hasta);
+      compParams.push(finDeDia(hasta));
     }
     const recClauses = ['alumno_id = ?'];
     const recParams: unknown[] = [alumno.id];
@@ -249,7 +253,7 @@ export function registerBillingRoutes(app: Express) {
     }
     if (hasta) {
       recClauses.push('fecha_emision <= ?');
-      recParams.push(hasta);
+      recParams.push(finDeDia(hasta));
     }
     const comprobantes = await db.all(
       `SELECT c.* FROM pagos_comprobantes c JOIN facturas f ON f.id = c.factura_id

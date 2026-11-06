@@ -1202,3 +1202,84 @@ test('T04 deuda, PDFs y jobs idempotentes con RBAC', async () => {
     assert.match(pdfRec.headers.get('content-type') || '', /application\/pdf/);
   }
 });
+
+test('T04 HU-18: el rango desde/hasta incluye el día completo del extremo final', async () => {
+  const periodo = '2026-08';
+  assert.equal((await api('/facturas/generar-periodo', admin, 'POST', { periodo })).status, 201);
+  const facs = (await api(`/facturas?alumno_id=${otherChild}`, otherParent)).data;
+  const fac = facs.find((f: { periodo: string }) => f.periodo === periodo);
+  assert.ok(fac, JSON.stringify(facs));
+  const item = (await api(`/facturas/${fac.id}`, otherParent)).data.items.find((i: { monto: number; monto_pagado: number }) => i.monto - i.monto_pagado > 0);
+  const png = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+  const sub = await api(`/facturas/${fac.id}/comprobantes`, otherParent, 'POST', {
+    item_ids: [item.id], archivo_nombre: 'rango.png', archivo_mime: 'image/png', archivo_contenido: png,
+    monto_declarado: Math.round((item.monto - item.monto_pagado) * 100) / 100,
+  });
+  assert.equal(sub.status, 201, JSON.stringify(sub.data));
+  const hoy = new Date().toISOString().slice(0, 10);
+  const mismoDia = await api(`/pagos/alumno/${otherChild}?desde=${hoy}&hasta=${hoy}`, otherParent);
+  assert.equal(mismoDia.status, 200);
+  assert.ok(mismoDia.data.comprobantes.some((c: { id: number }) => c.id === sub.data.id), JSON.stringify(mismoDia.data.comprobantes));
+  const emision = String(fac.fecha_emision).slice(0, 10);
+  const rango = await api(`/facturas?alumno_id=${otherChild}&desde=${emision}&hasta=${emision}`, otherParent);
+  assert.ok(rango.data.some((f: { id: number }) => f.id === fac.id), JSON.stringify(rango.data));
+});
+
+test('T04 HU-19: la deuda itemiza por concepto y el total coincide con la suma', async () => {
+  const deuda = await api(`/deuda/alumno/${otherChild}`, otherParent);
+  assert.equal(deuda.status, 200);
+  const items = deuda.data.facturas.flatMap((f: { items: unknown[] }) => f.items);
+  assert.ok(items.some((i: { tipo: string }) => i.tipo === 'base'));
+  assert.ok(items.every((i: { descripcion: string }) => typeof i.descripcion === 'string' && i.descripcion.length > 0));
+  const suma = Math.round(deuda.data.facturas.reduce((n: number, f: { saldo_pendiente: number }) => n + Number(f.saldo_pendiente), 0) * 100) / 100;
+  assert.equal(Number(deuda.data.total_deuda), suma);
+});
+
+test('T04 HU-18/HU-19: rango inclusivo, borde negativo y deuda por concepto con pago parcial', async () => {
+  const periodo = '2026-09';
+  assert.equal((await api('/facturas/generar-periodo', admin, 'POST', { periodo })).status, 201);
+  const facs = (await api(`/facturas?alumno_id=${otherChild}`, otherParent)).data;
+  const fac = facs.find((f: { periodo: string; fecha_emision: string }) => f.periodo === periodo);
+  assert.ok(fac, JSON.stringify(facs));
+  const emision = String(fac.fecha_emision).slice(0, 10);
+  const hoy = new Date().toISOString().slice(0, 10);
+  const ayer = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
+  const mismoDia = await api(`/facturas?alumno_id=${otherChild}&desde=${emision}&hasta=${emision}`, otherParent);
+  assert.ok(mismoDia.data.some((f: { id: number }) => f.id === fac.id), JSON.stringify(mismoDia.data));
+  const anterior = await api(`/facturas?alumno_id=${otherChild}&desde=2000-01-01&hasta=${ayer}`, otherParent);
+  assert.equal(anterior.data.filter((f: { id: number }) => f.id === fac.id).length, 0, JSON.stringify(anterior.data));
+  const deuda = await api(`/deuda/alumno/${otherChild}`, otherParent);
+  assert.equal(deuda.status, 200, JSON.stringify(deuda.data));
+  const enDeuda = deuda.data.facturas.find((f: { id: number }) => f.id === fac.id);
+  assert.ok(enDeuda, JSON.stringify(deuda.data.facturas));
+  assert.match(String(enDeuda.numero_factura), /^FAC-\d{6}-\d{4}$/);
+  assert.ok(enDeuda.items.length >= 1, JSON.stringify(enDeuda.items));
+  for (const it of enDeuda.items) {
+    assert.ok(typeof it.descripcion === 'string' && it.descripcion.length > 0);
+    assert.equal(typeof it.monto_pagado, 'number');
+  }
+  const item = enDeuda.items.find((it: { monto: number; monto_pagado: number }) => it.monto - it.monto_pagado > 0);
+  assert.ok(item);
+  const png = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+  const sub = await api(`/facturas/${fac.id}/comprobantes`, otherParent, 'POST', {
+    item_ids: [item.id], archivo_nombre: 'parcial.png', archivo_mime: 'image/png', archivo_contenido: png,
+    monto_declarado: Math.round((item.monto - item.monto_pagado) * 100) / 100,
+  });
+  assert.equal(sub.status, 201, JSON.stringify(sub.data));
+  const apr = await api(`/admin/comprobantes/${sub.data.id}/validar`, admin, 'PUT', { accion: 'aprobar' });
+  assert.equal(apr.status, 200, JSON.stringify(apr.data));
+  const pagosHoy = await api(`/pagos/alumno/${otherChild}?desde=${hoy}&hasta=${hoy}`, otherParent);
+  assert.ok(pagosHoy.data.comprobantes.some((c: { id: number }) => c.id === sub.data.id), JSON.stringify(pagosHoy.data.comprobantes));
+  assert.ok(pagosHoy.data.recibos.length >= 1, JSON.stringify(pagosHoy.data.recibos));
+  const pagosAyer = await api(`/pagos/alumno/${otherChild}?desde=2000-01-01&hasta=${ayer}`, otherParent);
+  assert.equal(pagosAyer.data.comprobantes.length, 0, JSON.stringify(pagosAyer.data.comprobantes));
+  assert.equal(pagosAyer.data.recibos.length, 0, JSON.stringify(pagosAyer.data.recibos));
+  const deuda2 = await api(`/deuda/alumno/${otherChild}`, otherParent);
+  const f2 = deuda2.data.facturas.find((f: { id: number }) => f.id === fac.id);
+  if (f2) {
+    assert.ok(f2.items.find((i: { id: number }) => i.id === item.id).monto_pagado > 0);
+    assert.ok(f2.items.filter((i: { id: number }) => i.id !== item.id).every((i: { monto_pagado: number }) => i.monto_pagado === 0));
+  }
+  const suma = Math.round(deuda2.data.facturas.reduce((n: number, f: { saldo_pendiente: number }) => n + Number(f.saldo_pendiente), 0) * 100) / 100;
+  assert.equal(Number(deuda2.data.total_deuda), suma);
+});
