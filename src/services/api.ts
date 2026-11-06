@@ -208,4 +208,17 @@ export const api = {
       '/facturas/generar-periodo',
       { periodo },
     ),
+  subirComprobante: (facturaId: number, data: {
+    item_ids: number[];
+    archivo_nombre: string;
+    archivo_mime: string;
+    archivo_contenido: string;
+    monto_declarado: number;
+    referencia_transferencia?: string;
+  }) =>
+    post<{ id: number; estado: string }, typeof data>(`/facturas/${facturaId}/comprobantes`, data),
+  getAdminComprobantes: (estado?: string) =>
+    request<{ id: number; factura_id: number; estado: string }[]>(
+      `/admin/comprobantes${estado ? `?estado=${estado}` : ''}`,
+    ),
 };

@@ -1,4 +1,5 @@
 import { Communications } from '../components/management/Communications';
+import { PaymentProofsQueue } from '../components/management/PaymentProofsQueue';
 import { AuditLog } from '../components/management/AuditLog';
 import { useState } from 'react';
 import type { Alumno, Docente } from '../types';
@@ -24,6 +25,7 @@ export function ManagementPage() {
   };
   const extraTabs = {
     inscripciones: 'Inscripciones y matrícula',
+    comprobantes: 'Validación de pagos',
     evaluaciones: 'Evaluaciones',
     asistencias: 'Asistencias',
     reportes: 'Reportes',
@@ -91,6 +93,7 @@ export function ManagementPage() {
           {tab === 'evaluaciones' && <AcademicPanel />}
           {tab === 'inscripciones' && <EnrollmentPanel admin />}
           {tab === 'comunicaciones' && <Communications />}
+          {tab === 'comprobantes' && <PaymentProofsQueue />}
           {tab === 'auditoria' && <AuditLog />}
         </div>
       </div>

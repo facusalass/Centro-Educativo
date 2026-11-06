@@ -146,6 +146,7 @@ export function StudentFeesPanel({ alumnoIdFijo }: { alumnoIdFijo?: number }) {
                     vence {f.fecha_vencimiento?.slice(0, 10)}
                   </p>
                 </div>
+                <UploadComprobante facturaId={f.id} onSubido={() => window.location.reload()} />
               </article>
             ))}
           </section>
@@ -169,6 +170,66 @@ export function StudentFeesPanel({ alumnoIdFijo }: { alumnoIdFijo?: number }) {
           </section>
         </>
       )}
+    </div>
+  );
+}
+
+function UploadComprobante({ facturaId, onSubido }: { facturaId: number; onSubido: () => void }) {
+  const [items, setItems] = useState<{ id: number; descripcion: string; monto: number; monto_pagado: number }[]>([]);
+  const [seleccion, setSeleccion] = useState<number[]>([]);
+  const [archivo, setArchivo] = useState<File | null>(null);
+  const [referencia, setReferencia] = useState('');
+  const [error, setError] = useState('');
+  useEffect(() => {
+    request<{ items: { id: number; descripcion: string; monto: number; monto_pagado: number }[] }>(`/facturas/${facturaId}`)
+      .then((d) => setItems(d.items))
+      .catch(() => {});
+  }, [facturaId]);
+  const enviar = async () => {
+    setError('');
+    try {
+      if (!seleccion.length) throw new Error('Seleccioná al menos un concepto.');
+      if (!archivo) throw new Error('Elegí el comprobante (JPG/PNG/PDF hasta 5 MB).');
+      const b64 = await new Promise<string>((resolve, reject) => {
+        const r = new FileReader();
+        r.onload = () => resolve(String(r.result).split(',')[1] ?? '');
+        r.onerror = () => reject(new Error('No se pudo leer el archivo.'));
+        r.readAsDataURL(archivo);
+      });
+      const elegidos = items.filter((it) => seleccion.includes(it.id));
+      const total = Math.round(elegidos.reduce((n, it) => n + (it.monto - it.monto_pagado), 0) * 100) / 100;
+      await request(`/facturas/${facturaId}/comprobantes`, {
+        method: 'POST',
+        body: JSON.stringify({
+          item_ids: seleccion,
+          archivo_nombre: archivo.name,
+          archivo_mime: archivo.type,
+          archivo_contenido: b64,
+          monto_declarado: total,
+          referencia_transferencia: referencia,
+        }),
+      });
+      onSubido();
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  };
+  return (
+    <div>
+      <Feedback error>{error}</Feedback>
+      {items.map((it) => (
+        <label key={it.id}>
+          <input
+            type="checkbox"
+            checked={seleccion.includes(it.id)}
+            onChange={(e) => setSeleccion(e.target.checked ? [...seleccion, it.id] : seleccion.filter((s) => s !== it.id))}
+          />
+          {it.descripcion} (saldo {(it.monto - it.monto_pagado).toFixed(2)})
+        </label>
+      ))}
+      <input type="file" accept=".jpg,.jpeg,.png,.pdf" onChange={(e) => setArchivo(e.target.files?.[0] ?? null)} />
+      <input placeholder="Referencia de transferencia" value={referencia} onChange={(e) => setReferencia(e.target.value)} />
+      <button type="button" onClick={() => void enviar()}>Subir comprobante</button>
     </div>
   );
 }

@@ -13,7 +13,7 @@ function vencimientoForPeriodo(periodo: string): string {
   return next.toISOString().slice(0, 10);
 }
 
-function round2(n: number): number {
+export function round2(n: number): number {
   return Math.round(n * 100) / 100;
 }
 

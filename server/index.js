@@ -44,7 +44,11 @@ app.use(
 app.use(
   helmet({ contentSecurityPolicy: false, crossOriginResourcePolicy: { policy: 'cross-origin' } }),
 );
-app.use(express.json({ limit: '256kb' }));
+app.use((req, res, next) =>
+  /^\/api\/facturas\/\d+\/comprobantes/.test(req.path)
+    ? express.json({ limit: '8mb' })(req, res, next)
+    : express.json({ limit: '256kb' })(req, res, next),
+);
 app.use('/api', (_req, res, next) => {
   res.set('Cache-Control', 'no-store');
   next();

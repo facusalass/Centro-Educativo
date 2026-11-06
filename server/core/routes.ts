@@ -7,6 +7,7 @@ import { registerFamilyRoutes } from './families.js';
 import { registerAttendanceRoutes } from './attendance.js';
 import { registerEnrollmentRoutes } from './enrollment-routes.js';
 import { registerBillingRoutes } from './billing.js';
+import { registerPaymentsRoutes } from './payments.js';
 import { registerNotificationRoutes } from './notification-routes.js';
 import { deliverPending } from './notifications.js';
 
@@ -28,5 +29,6 @@ export function registerCore(app: Express) {
   registerAttendanceRoutes(app);
   registerEnrollmentRoutes(app);
   registerBillingRoutes(app);
+  registerPaymentsRoutes(app);
   registerNotificationRoutes(app);
 }

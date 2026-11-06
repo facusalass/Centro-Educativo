@@ -1094,3 +1094,57 @@ test('T02 estado vencida se deriva en lectura y no se persiste', async () => {
   const stored = await db.get('SELECT estado FROM facturas WHERE id = ?', [fac.id]);
   assert.equal(stored.estado, 'pendiente');
 });
+
+test('T03 comprobantes: subida, validación ACID y archivo con RBAC', async () => {
+  const periodo = '2026-04';
+  const gen = await api('/facturas/generar-periodo', admin, 'POST', { periodo });
+  assert.equal(gen.status, 201, JSON.stringify(gen.data));
+  const list = await api(`/facturas?alumno_id=${otherChild}`, otherParent);
+  assert.equal(list.status, 200, JSON.stringify(list.data));
+  const fac = list.data.find((r) => r.periodo === periodo);
+  assert.ok(fac, JSON.stringify(list.data));
+  const detail = await api(`/facturas/${fac.id}`, otherParent);
+  assert.equal(detail.status, 200);
+  const item = detail.data.items.find((it) => it.monto - it.monto_pagado > 0);
+  assert.ok(item);
+  const resto = Math.round((item.monto - item.monto_pagado) * 100) / 100;
+  const png1px = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+  const badMime = await api(`/facturas/${fac.id}/comprobantes`, otherParent, 'POST', {
+    item_ids: [item.id],
+    archivo_nombre: 'x.txt',
+    archivo_mime: 'text/plain',
+    archivo_contenido: png1px,
+    monto_declarado: resto,
+  });
+  assert.equal(badMime.status, 400);
+  const sub = await api(`/facturas/${fac.id}/comprobantes`, otherParent, 'POST', {
+    item_ids: [item.id],
+    archivo_nombre: 'comprobante.png',
+    archivo_mime: 'image/png',
+    archivo_contenido: png1px,
+    monto_declarado: resto,
+    referencia_transferencia: 'TRF-1',
+  });
+  assert.equal(sub.status, 201, JSON.stringify(sub.data));
+  const compId = sub.data.id;
+  const archivoOk = await fetch(base + `/comprobantes/${compId}/archivo`, { headers: { Cookie: otherParent } });
+  assert.equal(archivoOk.status, 200);
+  assert.match(archivoOk.headers.get('content-type') || '', /image\/png/);
+  const archivoAdmin = await fetch(base + `/comprobantes/${compId}/archivo`, { headers: { Cookie: admin } });
+  assert.equal(archivoAdmin.status, 200);
+  const queue = await api('/admin/comprobantes?estado=en_revision', admin);
+  assert.equal(queue.status, 200);
+  assert.ok(queue.data.some((r) => r.id === compId));
+  assert.equal((await api('/admin/comprobantes', otherParent)).status, 403);
+  const sinMotivo = await api(`/admin/comprobantes/${compId}/validar`, admin, 'PUT', { accion: 'rechazar', motivo_rechazo: '' });
+  assert.equal(sinMotivo.status, 400);
+  const apr = await api(`/admin/comprobantes/${compId}/validar`, admin, 'PUT', { accion: 'aprobar' });
+  assert.equal(apr.status, 200, JSON.stringify(apr.data));
+  assert.match(apr.data.numero_recibo, /^REC-\d{6}-\d{4}$/);
+  const fac2 = await api(`/facturas/${fac.id}`, otherParent);
+  assert.equal(fac2.status, 200);
+  const it2 = fac2.data.items.find((it) => it.id === item.id);
+  assert.equal(it2.estado, 'pagado');
+  const pagos = await api(`/pagos/alumno/${otherChild}`, otherParent);
+  assert.ok(pagos.data.recibos.length >= 1);
+});

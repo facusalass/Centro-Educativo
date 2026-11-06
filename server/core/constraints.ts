@@ -98,7 +98,7 @@ export async function migrateConstraints() {
       CREATE TABLE IF NOT EXISTS pagos_comprobantes (
         id ${pk},
         factura_id INTEGER NOT NULL REFERENCES facturas(id),
-        padre_id INTEGER NOT NULL REFERENCES padres(id),
+        padre_id INTEGER NOT NULL REFERENCES usuarios_acceso(id),
         fecha_presentacion TEXT,
         monto_declarado REAL NOT NULL CHECK (monto_declarado >= 0),
         referencia_transferencia TEXT DEFAULT '',
@@ -137,7 +137,7 @@ export async function migrateConstraints() {
         id ${pk},
         periodo TEXT NOT NULL,
         tipo_aviso TEXT NOT NULL CHECK (tipo_aviso IN ('fin_de_mes', 'deuda_dia_20')),
-        padre_id INTEGER NOT NULL REFERENCES padres(id),
+        padre_id INTEGER NOT NULL REFERENCES usuarios_acceso(id),
         factura_id INTEGER NOT NULL REFERENCES facturas(id),
         notificacion_id INTEGER REFERENCES notificaciones(id),
         fecha_envio TEXT NOT NULL,
@@ -184,6 +184,69 @@ export async function migrateConstraints() {
     }
     await db.run('INSERT INTO schema_migrations (version, applied_at) VALUES (?, ?)', [
       5,
+      new Date().toISOString(),
+    ]);
+  });
+  await db.transaction(async () => {
+    if (await db.get('SELECT version FROM schema_migrations WHERE version = 6')) return;
+    const pk =
+      databaseMode === 'postgres' ? 'SERIAL PRIMARY KEY' : 'INTEGER PRIMARY KEY AUTOINCREMENT';
+    await db.exec(
+      `DROP TABLE IF EXISTS pago_comprobante_items;
+      DROP TABLE IF EXISTS recibos;
+      DROP TABLE IF EXISTS pagos_comprobantes;
+      DROP TABLE IF EXISTS avisos_facturacion_log;
+      CREATE TABLE IF NOT EXISTS pagos_comprobantes (
+        id ${pk},
+        factura_id INTEGER NOT NULL REFERENCES facturas(id),
+        padre_id INTEGER NOT NULL REFERENCES usuarios_acceso(id),
+        fecha_presentacion TEXT,
+        monto_declarado REAL NOT NULL CHECK (monto_declarado >= 0),
+        referencia_transferencia TEXT DEFAULT '',
+        archivo_nombre TEXT NOT NULL,
+        archivo_mime TEXT NOT NULL,
+        archivo_contenido TEXT NOT NULL,
+        estado TEXT NOT NULL DEFAULT 'en_revision' CHECK (estado IN ('en_revision', 'aprobado', 'rechazado')),
+        motivo_rechazo TEXT,
+        validado_por INTEGER REFERENCES usuarios_acceso(id),
+        fecha_validacion TEXT
+      );
+      CREATE TABLE IF NOT EXISTS pago_comprobante_items (
+        id ${pk},
+        comprobante_id INTEGER NOT NULL REFERENCES pagos_comprobantes(id),
+        factura_item_id INTEGER NOT NULL REFERENCES factura_items(id),
+        monto_imputado REAL NOT NULL CHECK (monto_imputado >= 0)
+      );
+      CREATE TABLE IF NOT EXISTS recibos (
+        id ${pk},
+        numero_recibo TEXT NOT NULL UNIQUE,
+        comprobante_id INTEGER NOT NULL UNIQUE REFERENCES pagos_comprobantes(id),
+        factura_id INTEGER NOT NULL REFERENCES facturas(id),
+        alumno_id INTEGER NOT NULL REFERENCES alumnos(id),
+        fecha_emision TEXT NOT NULL,
+        monto_total REAL NOT NULL CHECK (monto_total >= 0),
+        detalle_json TEXT NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS avisos_facturacion_log (
+        id ${pk},
+        periodo TEXT NOT NULL,
+        tipo_aviso TEXT NOT NULL CHECK (tipo_aviso IN ('fin_de_mes', 'deuda_dia_20')),
+        padre_id INTEGER NOT NULL REFERENCES usuarios_acceso(id),
+        factura_id INTEGER NOT NULL REFERENCES facturas(id),
+        notificacion_id INTEGER REFERENCES notificaciones(id),
+        fecha_envio TEXT NOT NULL,
+        UNIQUE (periodo, tipo_aviso, factura_id)
+      );`,
+    );
+    if (databaseMode === 'postgres')
+      await db.exec(`
+        ALTER TABLE pagos_comprobantes ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE pago_comprobante_items ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE recibos ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE avisos_facturacion_log ENABLE ROW LEVEL SECURITY;
+      `);
+    await db.run('INSERT INTO schema_migrations (version, applied_at) VALUES (?, ?)', [
+      6,
       new Date().toISOString(),
     ]);
   });

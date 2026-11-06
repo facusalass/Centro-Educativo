@@ -250,6 +250,18 @@ export function installSecurity(app: Express) {
       )
         return next();
       if (
+        req.user.rol === 'padre' &&
+        req.method === 'POST' &&
+        /^\/api\/facturas\/\d+\/comprobantes$/.test(req.path)
+      )
+        return next();
+      if (
+        req.user.rol === 'padre' &&
+        req.method === 'GET' &&
+        /^\/api\/comprobantes\/\d+\/archivo$/.test(req.path)
+      )
+        return next();
+      if (
         req.user.rol === 'docente' &&
         ((['/api/alumnos', '/api/asignaciones-docentes'].includes(req.path) &&
           req.method === 'GET') ||
