@@ -38,4 +38,4 @@ Objetivo: cerrar los faltantes detectados en la revisión sin mergear a `main`.
 - [x] `npm run build` limpio.
 - [x] `npx playwright test`: 35/35.
 - [x] `npm run format:check` en verde.
-- [ ] Pushear `feat/pwa-mobile` sin mergear a `main`.
+- [x] Pushear `feat/pwa-mobile` sin mergear a `main`.
