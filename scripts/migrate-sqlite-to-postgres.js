@@ -42,6 +42,13 @@ const tables = [
   'grupos_deporte',
   'recorridos_transporte',
   'inscripciones',
+  'password_resets',
+  'facturas',
+  'factura_items',
+  'pagos_comprobantes',
+  'pago_comprobante_items',
+  'recibos',
+  'avisos_facturacion_log',
 ];
 
 if (!postgresUrl) {

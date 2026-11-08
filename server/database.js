@@ -41,7 +41,7 @@ let sqlite;
 if (databaseMode === 'postgres') {
   pool = new Pool({
     connectionString: postgresUrl,
-    max: Number(process.env.DATABASE_POOL_SIZE || 5),
+    max: Number(process.env.DATABASE_POOL_SIZE || (process.env.VERCEL ? 2 : 5)),
     connectionTimeoutMillis: 10000,
     idleTimeoutMillis: 30000,
     ssl: postgresUrl.includes('sslmode=disable') ? false : { rejectUnauthorized: false },
@@ -256,7 +256,7 @@ export async function initializeDatabase() {
   if (process.env.SEED_DEMO !== 'true') {
     try {
       if (
-        Number((await get('SELECT MAX(version) AS version FROM schema_migrations'))?.version) >= 5
+        Number((await get('SELECT MAX(version) AS version FROM schema_migrations'))?.version) >= 8
       )
         return;
     } catch (error) {

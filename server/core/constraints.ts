@@ -252,7 +252,12 @@ export async function migrateConstraints() {
   });
   await db.transaction(async () => {
     if (await db.get('SELECT version FROM schema_migrations WHERE version = 7')) return;
-    const cols = await db.all('SELECT name FROM pragma_table_info(?)', ['notificaciones']).catch(() => []);
+    // Postgres primero: pragma_table_info no existe ahí y su error 42883
+    // envenena la transacción (25P02). Solo SQLite inspecciona el esquema.
+    const cols =
+      databaseMode === 'postgres'
+        ? []
+        : await db.all('SELECT name FROM pragma_table_info(?)', ['notificaciones']).catch(() => []);
     const names = new Set((cols as { name: string }[]).map((c) => c.name));
     const addCol = async (sql: string, col: string) => {
       if (names.has(col)) return;
@@ -276,6 +281,30 @@ export async function migrateConstraints() {
     }
     await db.run('INSERT INTO schema_migrations (version, applied_at) VALUES (?, ?)', [
       7,
+      new Date().toISOString(),
+    ]);
+  });
+  await db.transaction(async () => {
+    if (await db.get('SELECT version FROM schema_migrations WHERE version = 8')) return;
+    // REAL en Postgres es float4 (~7 dígitos): 125000.50 puede redondear.
+    // DOUBLE PRECISION iguala al float8 de SQLite manteniendo JS number vía pg.
+    if (databaseMode === 'postgres') {
+      await db.exec(`
+        ALTER TABLE schema_migrations ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE tarifas ALTER COLUMN monto TYPE DOUBLE PRECISION;
+        ALTER TABLE deportes ALTER COLUMN arancel_mensual TYPE DOUBLE PRECISION;
+        ALTER TABLE recorridos_transporte ALTER COLUMN arancel_mensual TYPE DOUBLE PRECISION;
+        ALTER TABLE facturas ALTER COLUMN total TYPE DOUBLE PRECISION;
+        ALTER TABLE facturas ALTER COLUMN saldo_pendiente TYPE DOUBLE PRECISION;
+        ALTER TABLE factura_items ALTER COLUMN monto TYPE DOUBLE PRECISION;
+        ALTER TABLE factura_items ALTER COLUMN monto_pagado TYPE DOUBLE PRECISION;
+        ALTER TABLE pagos_comprobantes ALTER COLUMN monto_declarado TYPE DOUBLE PRECISION;
+        ALTER TABLE pago_comprobante_items ALTER COLUMN monto_imputado TYPE DOUBLE PRECISION;
+        ALTER TABLE recibos ALTER COLUMN monto_total TYPE DOUBLE PRECISION;
+      `);
+    }
+    await db.run('INSERT INTO schema_migrations (version, applied_at) VALUES (?, ?)', [
+      8,
       new Date().toISOString(),
     ]);
   });

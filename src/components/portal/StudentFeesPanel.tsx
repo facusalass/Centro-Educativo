@@ -252,6 +252,8 @@ export function StudentFeesPanel({ alumnoIdFijo }: { alumnoIdFijo?: number }) {
 }
 
 function UploadComprobante({ facturaId, onSubido }: { facturaId: number; onSubido: () => void }) {
+  // Vercel corta en 4.5 MB por request y el Base64 infla ~33 %: tope cliente de 3 MB.
+  const MAX_COMPROBANTE_BYTES = 3 * 1024 * 1024;
   const [items, setItems] = useState<{ id: number; descripcion: string; monto: number; monto_pagado: number }[]>([]);
   const [seleccion, setSeleccion] = useState<number[]>([]);
   const [archivo, setArchivo] = useState<File | null>(null);
@@ -270,6 +272,7 @@ function UploadComprobante({ facturaId, onSubido }: { facturaId: number; onSubid
     try {
       if (!seleccion.length) throw new Error('Seleccioná al menos un concepto.');
       if (!archivo) throw new Error('Elegí el comprobante (JPG/PNG/PDF hasta 5 MB).');
+      if (archivo.size > MAX_COMPROBANTE_BYTES) throw new Error('El archivo supera los 3 MB. Probá con una foto más liviana o un PDF.');
       const b64 = await new Promise<string>((resolve, reject) => {
         const r = new FileReader();
         r.onload = () => resolve(String(r.result).split(',')[1] ?? '');
@@ -314,7 +317,15 @@ function UploadComprobante({ facturaId, onSubido }: { facturaId: number; onSubid
           </label>
         );
       })}
-      <input type="file" accept=".jpg,.jpeg,.png,.pdf" onChange={(e) => setArchivo(e.target.files?.[0] ?? null)} />
+      <input type="file" accept=".jpg,.jpeg,.png,.pdf" onChange={(e) => {
+        const elegido = e.target.files?.[0] ?? null;
+        if (elegido && elegido.size > MAX_COMPROBANTE_BYTES) {
+          setError('El archivo supera los 3 MB. Probá con una foto más liviana o un PDF.');
+          setArchivo(null);
+          return;
+        }
+        setArchivo(elegido);
+      }} />
       <input placeholder="Referencia de transferencia" value={referencia} onChange={(e) => setReferencia(e.target.value)} />
       <button type="button" disabled={subiendo} onClick={() => void enviar()}>{subiendo ? 'Subiendo…' : 'Subir comprobante'}</button>
     </div>

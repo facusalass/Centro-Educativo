@@ -335,7 +335,7 @@ export function installSecurity(app: Express) {
   // HU-04 (RF-01.3): la respuesta es siempre neutra para no revelar si el email existe;
   // el token crudo viaja solo dentro del correo, la base conserva únicamente su hash.
   // El token es de un solo uso, expira y al restablecer se revocan las sesiones activas.
-  const resetLinkOrigin = process.env.FRONTEND_URL || 'http://localhost:5173';
+  // El origin se deriva por request para que funcione en Vercel Preview sin FRONTEND_URL.
   const neutralRecovery = {
     ok: true,
     mensaje: 'Si el email está registrado, te enviamos un enlace para restablecer la contraseña. Revisá tu casilla.',
@@ -348,6 +348,9 @@ export function installSecurity(app: Express) {
       .toLowerCase();
     // Solo rechazamos cuerpos mal formados: el formato del email nunca decide la respuesta.
     assert(typeof input.email === 'string', 400, 'Ingresá un email válido.');
+    const resetLinkOrigin = (
+      process.env.FRONTEND_URL || `${req.protocol}://${req.get('host')}`
+    ).replace(/\/+$/, '');
     const user = await db.get(
       "SELECT * FROM usuarios_acceso WHERE LOWER(email) = ? AND estado = 'activo'",
       [email],

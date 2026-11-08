@@ -13,7 +13,8 @@ import { registerNotificationRoutes } from './notification-routes.js';
 import { deliverPending } from './notifications.js';
 
 export function registerCore(app: Express) {
-  installSecurity(app);
+  // El middleware de entrega async va ANTES que las rutas: forgot-password
+  // responde sin next() y en Vercel el intervalo de start.js no corre.
   app.use((req, res, next) => {
     if (['POST', 'PUT', 'DELETE'].includes(req.method) && process.env.SMTP_HOST)
       res.on('finish', () => {
@@ -24,6 +25,7 @@ export function registerCore(app: Express) {
       });
     next();
   });
+  installSecurity(app);
   registerEntities(app);
   registerAcademic(app);
   registerFamilyRoutes(app);

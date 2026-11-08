@@ -952,7 +952,8 @@ test('el acceso limita intentos repetidos de autenticación', async () => {
 
 test('migración v5 agrega aranceles diferenciados y las tablas financieras', async () => {
   const version = await db.get('SELECT MAX(version) AS version FROM schema_migrations');
-  assert.ok(Number(version.version) >= 5);
+  assert.ok(Number(version.version) >= 8);
+  const { databaseMode } = await import('../server/database.js');
   for (const table of [
     'facturas',
     'factura_items',
@@ -963,10 +964,15 @@ test('migración v5 agrega aranceles diferenciados y las tablas financieras', as
     'avisos_facturacion_log',
   ]) {
     assert.ok(
-      await db.get('SELECT name FROM sqlite_master WHERE type = ? AND name = ?', [
-        'table',
-        table,
-      ]),
+      databaseMode === 'postgres'
+        ? await db.get(
+          'SELECT table_name FROM information_schema.tables WHERE table_schema = ? AND table_name = ?',
+          ['public', table],
+        )
+        : await db.get('SELECT name FROM sqlite_master WHERE type = ? AND name = ?', [
+          'table',
+          table,
+        ]),
       `Falta la tabla ${table}.`,
     );
   }

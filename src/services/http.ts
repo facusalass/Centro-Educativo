@@ -29,6 +29,11 @@ export async function request<T>(path: string, options: RequestInit = {}): Promi
     throw new ApiError(0, 'No se pudo conectar con el servidor. Revisá tu conexión y reintentá.');
   }
   const content = await response.text();
+  if (response.status === 413)
+    throw new ApiError(
+      413,
+      'El archivo supera el tamaño máximo permitido por el servidor. Probá con una foto más liviana o un PDF.',
+    );
   let body: unknown;
   try {
     body = content ? JSON.parse(content) : undefined;

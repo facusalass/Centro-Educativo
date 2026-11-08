@@ -31,6 +31,13 @@ export const schoolTables = [
   'entregas',
   'historial_calificaciones',
   'tarifas',
+  'password_resets',
+  'facturas',
+  'factura_items',
+  'pagos_comprobantes',
+  'pago_comprobante_items',
+  'recibos',
+  'avisos_facturacion_log',
 ];
 const identifier = (name) => '"' + name.replaceAll('"', '""') + '"';
 export async function snapshot(client) {
