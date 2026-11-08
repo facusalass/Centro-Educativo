@@ -93,7 +93,7 @@ La restauración rechaza bases con datos. `--replace` autoriza explícitamente r
 
 ## Vercel
 
-El proyecto conserva su configuración de Vercel y el endpoint `/api`. Configurar por entorno `DATABASE_URL` y `JWT_SECRET`; para correo, las variables SMTP. `FRONTEND_URL` solo es necesario cuando frontend y API usan orígenes distintos.
+El proyecto conserva su configuración de Vercel y el endpoint `/api`. Configurar por entorno `DATABASE_URL`, `JWT_SECRET` y `FRONTEND_URL`; para correo, las variables SMTP. `FRONTEND_URL` se usa en los enlaces de recuperación y en CORS: en producción conviene fijarlo al dominio público (si falta, se intenta `VERCEL_PROJECT_PRODUCTION_URL`/`VERCEL_URL` y, por último, el origen de la solicitud).
 
 Los avisos de facturación automáticos usan Vercel Cron (`vercel.json`): el último día hábil a las 18:00 UTC y el día 20 a las 08:00 UTC. Configurar `CRON_SECRET` en Vercel; el scheduler envía `Authorization: Bearer <CRON_SECRET>` a `/api/jobs/cron/*`. Sin ese secreto los endpoints responden 503 y los avisos solo se pueden disparar manualmente desde administración. En un servidor persistente (`npm start`) el cron local se controla con `BILLING_CRON=off`.
 

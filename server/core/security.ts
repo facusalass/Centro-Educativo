@@ -338,13 +338,22 @@ export function installSecurity(app: Express) {
   // el token se guarda hasheado en `password_resets` y la cola de correo se redacta
   // después del envío. El token es de un solo uso, expira y al restablecer se
   // revocan las sesiones activas.
-  const resetLinkOrigin = process.env.FRONTEND_URL || 'http://localhost:5173';
   const neutralRecovery = {
     ok: true,
     mensaje:
       'Si el email está registrado, te enviamos un enlace para restablecer la contraseña. Revisá tu casilla.',
   };
   const invalidResetLink = 'El enlace de recuperación no es válido o ya expiró. Pedí uno nuevo.';
+  const publicOrigin = (req: Request) => {
+    const configured = process.env.FRONTEND_URL?.trim();
+    if (configured) return configured.replace(/\/$/, '');
+    const vercel =
+      process.env.VERCEL_PROJECT_PRODUCTION_URL?.trim() || process.env.VERCEL_URL?.trim();
+    if (vercel) return `https://${vercel.replace(/^https?:\/\//, '').replace(/\/$/, '')}`;
+    // Último recurso para desarrollo/local: el mismo origen que atendió la
+    // solicitud. En producción conviene fijar FRONTEND_URL.
+    return `${req.protocol}://${req.get('host')}`;
+  };
   app.post('/api/auth/forgot-password', async (req: Request, res: Response) => {
     const input = objectBody(req.body);
     const email = String(input.email ?? '')
@@ -370,7 +379,7 @@ export function installSecurity(app: Express) {
         await db.insert('notificaciones', {
           usuario_id: user.id,
           titulo: 'Recuperación de contraseña',
-          mensaje: `Hola ${user.nombre}: recibimos una solicitud para restablecer tu contraseña. Ingresá al siguiente enlace durante los próximos 30 minutos: ${resetLinkOrigin}/login?token=${raw}. Si no fuiste vos, ignorá este mensaje.`,
+          mensaje: `Hola ${user.nombre}: recibimos una solicitud para restablecer tu contraseña. Ingresá al siguiente enlace durante los próximos 30 minutos: ${publicOrigin(req)}/login?token=${raw}. Si no fuiste vos, ignorá este mensaje.`,
           email: user.email,
           fecha: new Date().toISOString(),
         });

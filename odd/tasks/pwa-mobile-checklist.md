@@ -35,7 +35,17 @@ Objetivo: cerrar los faltantes detectados en la revisión sin mergear a `main`.
 
 - [x] Agregar tests de regresión para las correcciones.
 - [x] `npm test`: 51/51.
+- [x] `npm run test:postgres`: 47/47 (incluye migración v4 → v7 y backup/restore).
 - [x] `npm run build` limpio.
 - [x] `npx playwright test`: 35/35.
 - [x] `npm run format:check` en verde.
+- [x] `vercel build --target preview` compila la Function y empaqueta PDFKit.
 - [x] Pushear `feat/pwa-mobile` sin mergear a `main`.
+
+## Pendientes de infraestructura (no de código)
+
+- [ ] Configurar `CRON_SECRET` y `FRONTEND_URL` en Vercel.
+- [ ] Resolver el límite de 4,5 MB de Vercel para comprobantes (el archivo base64 de 5 MB no entra).
+- [ ] Probar PDFs y cron en un preview real de Vercel.
+- [ ] Definir corrección/anulación de facturas y recibos para producción.
+- [ ] Revisar paginación de facturas/reportes antes de acumular varios ciclos.

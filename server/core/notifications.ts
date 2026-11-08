@@ -132,6 +132,10 @@ export async function deliverPending() {
           estado_email: 'enviado',
           intentos: item.intentos + 1,
           ultimo_error: '',
+          // El adjunto ya se entregó: no hace falta conservar megabytes de PDF
+          // en la base para siempre. Se limpia solo el contenido; el registro
+          // queda como historial de la notificación.
+          ...(item.archivo_contenido ? { archivo_contenido: null } : {}),
           // El token de recuperación viaja en el cuerpo del correo; una vez
           // enviado, se redacta para no dejarlo indefinidamente en la cola.
           ...(item.titulo === 'Recuperación de contraseña'

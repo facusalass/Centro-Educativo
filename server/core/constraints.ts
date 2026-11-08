@@ -252,24 +252,24 @@ export async function migrateConstraints() {
   });
   await db.transaction(async () => {
     if (await db.get('SELECT version FROM schema_migrations WHERE version = 7')) return;
-    const cols = await db
-      .all('SELECT name FROM pragma_table_info(?)', ['notificaciones'])
-      .catch(() => []);
-    const names = new Set((cols as { name: string }[]).map((c) => c.name));
+    // `pragma_table_info` es exclusivo de SQLite. En Postgres se usa
+    // information_schema/ADD COLUMN IF NOT EXISTS; ejecutar el pragma acá
+    // abortaba la transacción completa y rompía el arranque en producción.
+    const names = new Set<string>();
+    if (databaseMode !== 'postgres') {
+      const cols = await db.all('SELECT name FROM pragma_table_info(?)', ['notificaciones']);
+      for (const c of cols as { name: string }[]) names.add(c.name);
+    }
     const addCol = async (sql: string, col: string) => {
       if (names.has(col)) return;
       try {
         await db.exec(sql);
       } catch {
-        const check =
-          databaseMode === 'postgres'
-            ? await db.get(
-                'SELECT column_name FROM information_schema.columns WHERE table_name = ? AND column_name = ?',
-                ['notificaciones', col],
-              )
-            : undefined;
-        if (!check && databaseMode === 'sqlite')
-          throw new Error(`No se pudo agregar la columna ${col}.`);
+        if (databaseMode === 'sqlite') {
+          const cols = await db.all('SELECT name FROM pragma_table_info(?)', ['notificaciones']);
+          if (!(cols as { name: string }[]).some((c) => c.name === col))
+            throw new Error(`No se pudo agregar la columna ${col}.`);
+        }
       }
     };
     if (databaseMode === 'postgres') {

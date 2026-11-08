@@ -879,6 +879,10 @@ test('la recuperación genera un token de un solo uso y solo avisa al usuario ex
   assert.equal(avisos.length, countsBefore.avisos + 2);
   const raw = /token=([A-Za-z0-9_-]+)/.exec(avisos[0].mensaje);
   assert.ok(raw, 'el correo contiene el enlace con el token crudo');
+  assert.ok(
+    avisos[0].mensaje.includes(`${base.slice(0, -4)}/login?token=`),
+    'el enlace usa el origen real de la solicitud cuando no hay FRONTEND_URL',
+  );
   recoveryToken = raw![1];
   assert.ok(recoveryToken.length >= 43, 'token de 32 bytes url-safe');
 });
@@ -963,6 +967,7 @@ test('el acceso limita intentos repetidos de autenticación', async () => {
 });
 
 test('migración v5 agrega aranceles diferenciados y las tablas financieras', async () => {
+  const { databaseMode } = await import('../server/database.js');
   const version = await db.get('SELECT MAX(version) AS version FROM schema_migrations');
   assert.ok(Number(version.version) >= 5);
   for (const table of [
@@ -974,10 +979,17 @@ test('migración v5 agrega aranceles diferenciados y las tablas financieras', as
     'password_resets',
     'avisos_facturacion_log',
   ]) {
-    assert.ok(
-      await db.get('SELECT name FROM sqlite_master WHERE type = ? AND name = ?', ['table', table]),
-      `Falta la tabla ${table}.`,
-    );
+    const exists =
+      databaseMode === 'postgres'
+        ? await db.get(
+            'SELECT table_name FROM information_schema.tables WHERE table_schema = ? AND table_name = ?',
+            ['public', table],
+          )
+        : await db.get('SELECT name FROM sqlite_master WHERE type = ? AND name = ?', [
+            'table',
+            table,
+          ]);
+    assert.ok(exists, `Falta la tabla ${table}.`);
   }
   const deporte = await db.get('SELECT arancel_mensual FROM deportes WHERE id = 1');
   assert.ok(deporte.arancel_mensual !== undefined && Number(deporte.arancel_mensual) >= 0);
