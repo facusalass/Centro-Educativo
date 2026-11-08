@@ -10,6 +10,7 @@ type Comprobante = {
   estado: string;
   archivo_nombre: string;
   motivo_rechazo: string | null;
+  referencia_transferencia?: string | null;
 };
 
 export function PaymentProofsQueue() {
@@ -71,6 +72,7 @@ export function PaymentProofsQueue() {
             </strong>
             <p>
               {c.archivo_nombre} · {c.estado}
+              {c.referencia_transferencia ? ` · Ref: ${c.referencia_transferencia}` : ''}
               {c.motivo_rechazo ? ` · Motivo: ${c.motivo_rechazo}` : ''}
             </p>
             <a href={`/api/comprobantes/${c.id}/archivo`} target="_blank" rel="noreferrer">

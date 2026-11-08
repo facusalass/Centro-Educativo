@@ -198,7 +198,8 @@ export function EntityManager({
                   <input
                     type={field.type || 'text'}
                     required={field.required || (field.key === 'password' && !editing.id)}
-                    min={field.type === 'number' ? 1 : undefined}
+                    min={field.type === 'number' ? (['cupo', 'anio'].includes(field.key) ? 1 : 0) : undefined}
+                    step={field.type === 'number' ? (['cupo', 'anio'].includes(field.key) ? 1 : 0.01) : undefined}
                     minLength={field.type === 'password' ? 10 : undefined}
                     autoComplete={field.type === 'password' ? 'new-password' : undefined}
                     value={editing[field.key] ?? ''}

@@ -79,6 +79,7 @@ export function registerPaymentsRoutes(app: Express) {
       const resto = round2(Number(it.monto) - Number(it.monto_pagado));
       assert(resto > 0, 400, 'Algún concepto ya está pagado.');
       assert(it.estado !== 'pagado', 400, 'Algún concepto ya está pagado.');
+      assert(it.estado !== 'en_revision', 400, 'Algún concepto ya tiene un comprobante en revisión.');
       imputable = round2(imputable + resto);
     }
     assert(imputable === montoDeclarado, 400, 'El monto declarado debe igualar la suma de los conceptos.');

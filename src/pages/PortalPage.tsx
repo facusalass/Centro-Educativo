@@ -28,7 +28,13 @@ import { ErrorBoundary } from '../components/ErrorBoundary';
 
 export function PortalPage() {
   const { user, loading, logout } = useSession();
-  const [tab, setTab] = useState('inicio');
+  const [tab, setTab] = useState(() => new URLSearchParams(window.location.search).get('tab') ?? 'inicio');
+  const cambiarTab = (key: string) => {
+    setTab(key);
+    const params = new URLSearchParams(window.location.search);
+    params.set('tab', key);
+    window.history.replaceState(null, '', `${window.location.pathname}?${params.toString()}`);
+  };
   const [logoutError, setLogoutError] = useState('');
   const [profileRevision, setProfileRevision] = useState(0);
   if (loading)
@@ -107,7 +113,7 @@ export function PortalPage() {
     >
       <nav className="portal-tabs portal-desktop-tabs" aria-label="Secciones del portal">
         {Object.entries(tabs).map(([key, label]) => (
-          <button key={key} className={tab === key ? 'active' : ''} onClick={() => setTab(key)}>
+          <button key={key} className={tab === key ? 'active' : ''} onClick={() => cambiarTab(key)}>
             {label}
           </button>
         ))}
@@ -187,7 +193,7 @@ export function PortalPage() {
               key={key}
               className={tab === key ? 'active' : ''}
               aria-current={tab === key ? 'page' : undefined}
-              onClick={() => setTab(key)}
+              onClick={() => cambiarTab(key)}
             >
               <Icon size={20} aria-hidden />
               <span>{label}</span>

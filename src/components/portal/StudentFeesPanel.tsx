@@ -52,8 +52,10 @@ async function descargarPdf(path: string, nombre: string) {
   const a = document.createElement('a');
   a.href = url;
   a.download = nombre;
+  document.body.append(a);
   a.click();
-  URL.revokeObjectURL(url);
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 export function StudentFeesPanel({ alumnoIdFijo }: { alumnoIdFijo?: number }) {
@@ -67,7 +69,9 @@ export function StudentFeesPanel({ alumnoIdFijo }: { alumnoIdFijo?: number }) {
   const [hasta, setHasta] = useState('');
   const [deuda, setDeuda] = useState<{ total_deuda: number; facturas: Factura[] } | null>(null);
   const [error, setError] = useState('');
+  const [mensaje, setMensaje] = useState('');
   const [cargando, setCargando] = useState(true);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
     if (alumnoIdFijo) return;
@@ -79,7 +83,7 @@ export function StudentFeesPanel({ alumnoIdFijo }: { alumnoIdFijo?: number }) {
       .catch((e: Error) => setError(e.message));
   }, [alumnoIdFijo]);
 
-  useEffect(() => {
+  const cargarDatos = () => {
     if (!alumnoId) {
       setCargando(false);
       return;
@@ -108,7 +112,9 @@ export function StudentFeesPanel({ alumnoIdFijo }: { alumnoIdFijo?: number }) {
       })
       .catch((e: Error) => setError(e.message))
       .finally(() => setCargando(false));
-  }, [alumnoId, desde, hasta]);
+  };
+
+  useEffect(cargarDatos, [alumnoId, desde, hasta, refreshKey]);
 
   const visibles = filtro ? facturas.filter((f) => f.estado === filtro) : facturas;
   const pendientes = facturas.filter((f) => ['pendiente', 'parcial', 'en_revision', 'vencida'].includes(f.estado));
@@ -117,6 +123,7 @@ export function StudentFeesPanel({ alumnoIdFijo }: { alumnoIdFijo?: number }) {
   return (
     <div>
       <Feedback error>{error}</Feedback>
+      <Feedback>{mensaje}</Feedback>
       {!alumnoIdFijo && (
         <section className="panel-card">
           <label>
@@ -192,8 +199,10 @@ export function StudentFeesPanel({ alumnoIdFijo }: { alumnoIdFijo?: number }) {
                     vence {f.fecha_vencimiento?.slice(0, 10)}
                   </p>
                 </div>
-                <button type="button" onClick={() => void descargarPdf(`/facturas/${f.id}/pdf`, `${f.numero_factura}.pdf`)}>PDF factura</button>
-                <UploadComprobante facturaId={f.id} onSubido={() => window.location.reload()} />
+                <button type="button" onClick={() => { descargarPdf(`/facturas/${f.id}/pdf`, `${f.numero_factura}.pdf`).catch((e: Error) => setError(e.message)); }}>PDF factura</button>
+                {f.saldo_pendiente > 0 && ['pendiente', 'parcial', 'vencida'].includes(f.estado) && (
+                  <UploadComprobante facturaId={f.id} onSubido={() => { setMensaje('Comprobante enviado, quedó en revisión.'); setRefreshKey((k) => k + 1); }} />
+                )}
               </article>
             ))}
           </section>
@@ -203,7 +212,7 @@ export function StudentFeesPanel({ alumnoIdFijo }: { alumnoIdFijo?: number }) {
             {recibos.map((r) => (
               <p key={r.id}>
                 {r.numero_recibo} · {fmt(r.monto_total)}{' '}
-                <button type="button" onClick={() => void descargarPdf(`/recibos/${r.id}/pdf`, `${r.numero_recibo}.pdf`)}>PDF recibo</button>
+                <button type="button" onClick={() => { descargarPdf(`/recibos/${r.id}/pdf`, `${r.numero_recibo}.pdf`).catch((e: Error) => setError(e.message)); }}>PDF recibo</button>
               </p>
             ))}
           </section>
@@ -213,6 +222,17 @@ export function StudentFeesPanel({ alumnoIdFijo }: { alumnoIdFijo?: number }) {
               Pendientes: {pendientes.length} · Pagadas: {pagadas.length} · Comprobantes:{' '}
               {comprobantes.length} · Recibos: {recibos.length}
             </p>
+            {comprobantes.length > 0 && (
+              <ul>
+                {comprobantes.map((c) => (
+                  <li key={c.id}>
+                    Comprobante #{c.id} · {c.estado}
+                    {c.estado === 'rechazado' ? `: ${c.motivo_rechazo ?? 'sin motivo'}` : ''}{' '}
+                    <a href={`/api/comprobantes/${c.id}/archivo`} target="_blank" rel="noreferrer">Ver archivo</a>
+                  </li>
+                ))}
+              </ul>
+            )}
             {comprobantes.some((c) => c.estado === 'rechazado') && (
               <ul>
                 {comprobantes
@@ -236,6 +256,7 @@ function UploadComprobante({ facturaId, onSubido }: { facturaId: number; onSubid
   const [seleccion, setSeleccion] = useState<number[]>([]);
   const [archivo, setArchivo] = useState<File | null>(null);
   const [referencia, setReferencia] = useState('');
+  const [subiendo, setSubiendo] = useState(false);
   const [error, setError] = useState('');
   useEffect(() => {
     request<{ items: { id: number; descripcion: string; monto: number; monto_pagado: number }[] }>(`/facturas/${facturaId}`)
@@ -243,7 +264,9 @@ function UploadComprobante({ facturaId, onSubido }: { facturaId: number; onSubid
       .catch(() => {});
   }, [facturaId]);
   const enviar = async () => {
+    if (subiendo) return;
     setError('');
+    setSubiendo(true);
     try {
       if (!seleccion.length) throw new Error('Seleccioná al menos un concepto.');
       if (!archivo) throw new Error('Elegí el comprobante (JPG/PNG/PDF hasta 5 MB).');
@@ -269,24 +292,31 @@ function UploadComprobante({ facturaId, onSubido }: { facturaId: number; onSubid
       onSubido();
     } catch (e) {
       setError((e as Error).message);
+    } finally {
+      setSubiendo(false);
     }
   };
   return (
     <div>
       <Feedback error>{error}</Feedback>
-      {items.map((it) => (
-        <label key={it.id}>
-          <input
-            type="checkbox"
-            checked={seleccion.includes(it.id)}
-            onChange={(e) => setSeleccion(e.target.checked ? [...seleccion, it.id] : seleccion.filter((s) => s !== it.id))}
-          />
-          {it.descripcion} (saldo {(it.monto - it.monto_pagado).toFixed(2)})
-        </label>
-      ))}
+      {items.map((it) => {
+        const saldo = it.monto - it.monto_pagado;
+        const bloqueado = saldo <= 0;
+        return (
+          <label key={it.id}>
+            <input
+              type="checkbox"
+              disabled={bloqueado}
+              checked={seleccion.includes(it.id)}
+              onChange={(e) => setSeleccion(e.target.checked ? [...seleccion, it.id] : seleccion.filter((s) => s !== it.id))}
+            />
+            {it.descripcion} (saldo {saldo.toFixed(2)}){bloqueado ? ' — pagado' : ''}
+          </label>
+        );
+      })}
       <input type="file" accept=".jpg,.jpeg,.png,.pdf" onChange={(e) => setArchivo(e.target.files?.[0] ?? null)} />
       <input placeholder="Referencia de transferencia" value={referencia} onChange={(e) => setReferencia(e.target.value)} />
-      <button type="button" onClick={() => void enviar()}>Subir comprobante</button>
+      <button type="button" disabled={subiendo} onClick={() => void enviar()}>{subiendo ? 'Subiendo…' : 'Subir comprobante'}</button>
     </div>
   );
 }
