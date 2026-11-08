@@ -8,7 +8,10 @@ export function Notifications() {
     [error, setError] = useState('');
   const load = () =>
     request<Notice[]>('/notificaciones')
-      .then(setItems)
+      .then((rows) => {
+        setItems(rows);
+        setError('');
+      })
       .catch((e: Error) => setError(e.message));
   useEffect(() => {
     void load();

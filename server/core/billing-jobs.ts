@@ -2,7 +2,7 @@ import type { Express } from 'express';
 import { db } from '../database.js';
 import { assert } from './errors.js';
 import { audit } from './security.js';
-import { displayEstado } from './billing.js';
+import { displayEstado, generateMonthlyInvoices } from './billing.js';
 import { facturaPdfBuffer } from './documents.js';
 import { queueEmail } from './notifications.js';
 
@@ -67,6 +67,7 @@ async function enviarLote(periodo: string, tipo: 'fin_de_mes' | 'deuda_dia_20', 
 }
 
 export async function runRecordatorioFinMes(periodo: string) {
+  await generateMonthlyInvoices(periodo);
   return enviarLote(periodo, 'fin_de_mes', `Facturación ${periodo} disponible`, (f) => `La factura ${f.numero_factura} del período ${periodo} está disponible. Saldo pendiente: $${Number(f.saldo_pendiente).toFixed(2)}. Se adjunta el comprobante en PDF.`);
 }
 

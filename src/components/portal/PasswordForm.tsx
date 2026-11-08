@@ -16,7 +16,7 @@ export function PasswordForm() {
         method: 'PUT',
         body: JSON.stringify({ actual, password }),
       });
-      window.location.assign('/login');
+      window.location.replace('/login');
     } catch (e) {
       setError((e as Error).message);
     } finally {

@@ -18,6 +18,7 @@ import { ReportesViewer } from '../components/ReportesViewer';
 import { AsistenciasSection } from '../components/AsistenciasSection';
 import { AcademicPanel } from '../components/AcademicPanel';
 import { EnrollmentPanel } from '../components/EnrollmentPanel';
+import { api } from '../services/api';
 import { Button } from '../components/Button';
 export function ManagementPage() {
   const [tab, setTab] = useState('alumnos');
@@ -33,6 +34,7 @@ export function ManagementPage() {
   const extraTabs = {
     inscripciones: 'Inscripciones y matrícula',
     comprobantes: 'Validación de pagos',
+    facturacion: 'Facturación y avisos',
     evaluaciones: 'Evaluaciones',
     asistencias: 'Asistencias',
     reportes: 'Reportes',
@@ -105,9 +107,66 @@ export function ManagementPage() {
           {tab === 'inscripciones' && <EnrollmentPanel admin />}
           {tab === 'comunicaciones' && <Communications />}
           {tab === 'comprobantes' && <PaymentProofsQueue />}
+          {tab === 'facturacion' && <FacturacionPanel />}
           {tab === 'auditoria' && <AuditLog />}
         </div>
       </div>
     </PortalShell>
+  );
+}
+
+function FacturacionPanel() {
+  const periodoActual = new Date().toISOString().slice(0, 7);
+  const [periodo, setPeriodo] = useState(periodoActual);
+  const [resultado, setResultado] = useState('');
+  const [error, setError] = useState('');
+  const [pendiente, setPendiente] = useState(false);
+  const correr = async (accion: 'generar' | 'fin-mes' | 'deuda-20') => {
+    setError('');
+    setResultado('');
+    setPendiente(true);
+    try {
+      if (accion === 'generar') {
+        const r = await api.generarPeriodo(periodo);
+        setResultado(`Período ${r.periodo}: ${r.creadas} creadas, ${r.omitidas} omitidas.`);
+      } else if (accion === 'fin-mes') {
+        const r = await api.ejecutarRecordatorioFinMes(periodo);
+        setResultado(`Fin de mes ${r.periodo}: ${r.enviadas} enviadas, ${r.omitidas} omitidas.`);
+      } else {
+        const r = await api.ejecutarAvisoDeuda(periodo);
+        setResultado(`Deuda día 20 ${r.periodo}: ${r.enviadas} enviadas, ${r.omitidas} omitidas.`);
+      }
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setPendiente(false);
+    }
+  };
+  return (
+    <section className="panel-card">
+      <div className="section-toolbar">
+        <div>
+          <span className="eyebrow">Facturación</span>
+          <h2>Generar período y avisos</h2>
+        </div>
+        <label>
+          Período
+          <input type="month" value={periodo} onChange={(e) => setPeriodo(e.target.value)} />
+        </label>
+      </div>
+      <Feedback error>{error}</Feedback>
+      <Feedback>{resultado}</Feedback>
+      <div className="form-actions">
+        <Button disabled={pendiente} onClick={() => void correr('generar')}>
+          {pendiente ? 'Procesando…' : 'Generar facturas'}
+        </Button>
+        <Button variant="outline" disabled={pendiente} onClick={() => void correr('fin-mes')}>
+          Enviar recordatorio fin de mes
+        </Button>
+        <Button variant="outline" disabled={pendiente} onClick={() => void correr('deuda-20')}>
+          Enviar aviso deuda día 20
+        </Button>
+      </div>
+    </section>
   );
 }

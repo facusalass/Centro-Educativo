@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { ArrowLeft, LogOut, ShieldCheck } from 'lucide-react';
 import { useSession } from '../services/session';
 import { Button } from './Button';
@@ -16,6 +16,19 @@ export function Feedback({ children, error = false }: { children: ReactNode; err
 export function PortalShell({ title, children }: { title: string; children: ReactNode }) {
   const { user, logout } = useSession();
   const [error, setError] = useState('');
+  const [offline, setOffline] = useState(
+    typeof navigator === 'undefined' ? false : !navigator.onLine,
+  );
+  useEffect(() => {
+    const on = () => setOffline(false);
+    const off = () => setOffline(true);
+    window.addEventListener('online', on);
+    window.addEventListener('offline', off);
+    return () => {
+      window.removeEventListener('online', on);
+      window.removeEventListener('offline', off);
+    };
+  }, []);
   return (
     <div className="internal-page">
       <header className="internal-header">
@@ -52,6 +65,7 @@ export function PortalShell({ title, children }: { title: string; children: Reac
           </Button>
         </div>
         <Feedback error>{error}</Feedback>
+        {offline && <Feedback>Sin conexión a internet. Revisá tu red e intentá de nuevo.</Feedback>}
         {children}
       </main>
     </div>

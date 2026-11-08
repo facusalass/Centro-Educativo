@@ -8,7 +8,7 @@ test('manifiesto PWA vinculado y servido con los campos esperados (HU-01)', asyn
   expect(manifest.short_name).toBe('Educar');
   expect(manifest.lang).toBe('es');
   expect(manifest.display).toBe('standalone');
-  expect(manifest.start_url).toBe('/');
+  expect(manifest.start_url).toBe('/login');
   expect(manifest.theme_color).toBe('#4f46e5');
   expect(manifest.background_color).toBe('#f9fafb');
   const sizes: string[] = manifest.icons.map((icon: { sizes: string }) => icon.sizes);

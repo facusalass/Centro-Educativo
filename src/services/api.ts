@@ -208,6 +208,16 @@ export const api = {
       '/facturas/generar-periodo',
       { periodo },
     ),
+  ejecutarRecordatorioFinMes: (periodo: string) =>
+    post<{ periodo: string; enviadas: number; omitidas: number }, { periodo: string }>(
+      '/jobs/recordatorio-fin-mes',
+      { periodo },
+    ),
+  ejecutarAvisoDeuda: (periodo: string) =>
+    post<{ periodo: string; enviadas: number; omitidas: number }, { periodo: string }>(
+      '/jobs/aviso-deuda-dia-20',
+      { periodo },
+    ),
   subirComprobante: (facturaId: number, data: {
     item_ids: number[];
     archivo_nombre: string;

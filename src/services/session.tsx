@@ -18,6 +18,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         if (!controller.signal.aborted) setUser(r.usuario);
       })
       .catch(() => {
+        // Offline (status 0) o 401 caen acá: se muestra login + banner offline.
         if (!controller.signal.aborted) setUser(null);
       })
       .finally(() => {
@@ -31,9 +32,12 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     };
   }, []);
   const logout = async () => {
-    await request('/auth/logout', { method: 'POST' });
-    setUser(null);
-    window.location.assign('/login');
+    try {
+      await request('/auth/logout', { method: 'POST' });
+    } finally {
+      setUser(null);
+    }
+    window.location.replace('/login');
   };
   return <Context.Provider value={{ user, loading, setUser, logout }}>{children}</Context.Provider>;
 }

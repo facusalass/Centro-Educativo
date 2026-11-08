@@ -5,6 +5,7 @@ import { assert, idOf } from './errors.js';
 import { audit, requireStudent } from './security.js';
 import { objectBody } from './validation.js';
 import { round2 } from './billing.js';
+import { queueEmail } from './notifications.js';
 
 const MAX_FILE_BYTES = 5 * 1024 * 1024;
 const ALLOWED_MIME = new Set(['image/jpeg', 'image/png', 'application/pdf']);
@@ -143,6 +144,20 @@ export function registerPaymentsRoutes(app: Express) {
         await recomputeFactura(comp.factura_id);
       });
       await audit(req.user!.id, 'rechazar comprobante', 'pagos_comprobantes', id);
+      try {
+        const comp = await db.get('SELECT * FROM pagos_comprobantes WHERE id = ?', [id]);
+        const padre = comp ? await db.get("SELECT * FROM usuarios_acceso WHERE id = ? AND estado = 'activo'", [comp.padre_id]) : null;
+        if (padre) {
+          await queueEmail({
+            usuario_id: padre.id,
+            email: padre.email,
+            titulo: `Comprobante #${id} rechazado`,
+            mensaje: `Tu comprobante #${id} fue rechazado. Motivo: ${motivo}. Podés subir un nuevo comprobante desde Mi Portal.`,
+          });
+        }
+      } catch {
+        // La notificación es best-effort: el rechazo ya quedó registrado.
+      }
       return res.json({ ok: true, estado: 'rechazado' });
     }
     const out = await db.transaction(async () => {
@@ -173,6 +188,20 @@ export function registerPaymentsRoutes(app: Express) {
       return { reciboId, numero_recibo, estado };
     });
     await audit(req.user!.id, 'aprobar comprobante', 'pagos_comprobantes', id);
+    try {
+      const comp = await db.get('SELECT * FROM pagos_comprobantes WHERE id = ?', [id]);
+      const padre = comp ? await db.get("SELECT * FROM usuarios_acceso WHERE id = ? AND estado = 'activo'", [comp.padre_id]) : null;
+      if (padre) {
+        await queueEmail({
+          usuario_id: padre.id,
+          email: padre.email,
+          titulo: `Pago aprobado — recibo ${out.numero_recibo}`,
+          mensaje: `Tu comprobante #${id} fue aprobado y se generó el recibo ${out.numero_recibo}. Gracias por tu pago.`,
+        });
+      }
+    } catch {
+      // La notificación es best-effort: la aprobación ya quedó registrada.
+    }
     res.json({ ok: true, estado: 'aprobado', ...out });
   });
 
