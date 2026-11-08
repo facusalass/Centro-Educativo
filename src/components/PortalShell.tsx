@@ -23,7 +23,13 @@ export function PortalShell({ title, children }: { title: string; children: Reac
           <ArrowLeft size={17} /> Sitio institucional
         </a>
         <strong>Educar para Transformar</strong>
-        <a className="text-button" href="/login">
+        <a
+          className="text-button"
+          href="/login"
+          onClick={(e) => {
+            if (window.location.pathname === '/login') e.preventDefault();
+          }}
+        >
           Mi portal
         </a>
       </header>

@@ -14,7 +14,7 @@ export default defineConfig({
           'Portal educativo del centro Educar para Transformar: novedades, inscripciones y gestión académica.',
         lang: 'es',
         display: 'standalone',
-        start_url: '/',
+        start_url: '/login',
         theme_color: '#4f46e5',
         background_color: '#f9fafb',
         icons: [
@@ -32,6 +32,7 @@ export default defineConfig({
       // No se declara runtimeCaching: las respuestas de /api no se cachean.
       workbox: {
         navigateFallback: '/index.html',
+        navigateFallbackDenylist: [/^\/api(?:\/|$)/],
       },
     }),
   ],

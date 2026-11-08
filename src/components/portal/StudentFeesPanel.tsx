@@ -138,7 +138,7 @@ export function StudentFeesPanel({ alumnoIdFijo }: { alumnoIdFijo?: number }) {
         <p className="empty-state">Seleccioná un alumno para ver sus cuotas.</p>
       ) : (
         <>
-          <section className="panel-card">
+          <section className="panel-card printable-area">
             <div className="section-toolbar">
               <div>
                 <span className="eyebrow">Cuotas y facturación</span>

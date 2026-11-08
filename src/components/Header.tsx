@@ -59,6 +59,9 @@ export function Header() {
               {item.label}
             </a>
           ))}
+          <a href="/login" onClick={() => setOpen(false)}>
+            Acceso Comunidad / Mi Portal
+          </a>
           <a href="#inscripcion" onClick={() => setOpen(false)}>
             Solicitud de Inscripción
           </a>

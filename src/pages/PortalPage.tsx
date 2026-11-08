@@ -4,6 +4,7 @@ import {
   GraduationCap,
   Home,
   LogOut,
+  Receipt,
   Settings,
   UserRound,
   type LucideIcon,
@@ -44,12 +45,20 @@ export function PortalPage() {
         : user.rol === 'alumno'
           ? 'Mi legajo y actividades'
           : 'Mi actividad',
-    cuotas: 'Cuotas',
     evaluaciones: 'Evaluaciones',
     novedades: 'Novedades',
     seguridad: 'Mi cuenta',
   };
-  if (user.rol === 'docente') tabs.asistencias = 'Asistencias';
+  // Cuotas es solo para padre (HU-06 / RF-01.5): alumno/docente/personal reciben 403.
+  if (user.rol === 'padre') tabs.cuotas = 'Cuotas';
+  if (user.rol === 'docente') {
+    tabs.asistencias = 'Asistencias';
+    delete tabs.cuotas;
+  }
+  // Personal no tiene evaluaciones ni cuotas asignadas: no se exponen como tabs.
+  if (user.rol === 'personal') {
+    delete tabs.evaluaciones;
+  }
   // HU-06: navegación móvil acotada por rol — el padre navega por sus hijos
   // (selector por hijo dentro de "Mis hijos"), el alumno solo se ve a sí mismo;
   // ningún rol administra desde el portal.
@@ -57,7 +66,7 @@ export function PortalPage() {
     user.rol === 'padre'
       ? [
           { key: 'inicio', label: 'Inicio', icon: Home },
-          { key: 'cuotas', label: 'Cuotas', icon: GraduationCap },
+          { key: 'cuotas', label: 'Cuotas', icon: Receipt },
           { key: 'evaluaciones', label: 'Evaluaciones', icon: GraduationCap },
           { key: 'novedades', label: 'Novedades', icon: Bell },
           { key: 'seguridad', label: 'Cuenta', icon: Settings },
@@ -65,12 +74,25 @@ export function PortalPage() {
       : user.rol === 'alumno'
         ? [
             { key: 'inicio', label: 'Mi perfil', icon: UserRound },
-            { key: 'cuotas', label: 'Cuotas', icon: GraduationCap },
             { key: 'evaluaciones', label: 'Evaluaciones', icon: GraduationCap },
             { key: 'novedades', label: 'Novedades', icon: Bell },
             { key: 'seguridad', label: 'Cuenta', icon: Settings },
           ]
-        : [];
+        : user.rol === 'docente'
+          ? [
+              { key: 'inicio', label: 'Inicio', icon: Home },
+              { key: 'asistencias', label: 'Asistencias', icon: UserRound },
+              { key: 'evaluaciones', label: 'Evaluaciones', icon: GraduationCap },
+              { key: 'novedades', label: 'Novedades', icon: Bell },
+              { key: 'seguridad', label: 'Cuenta', icon: Settings },
+            ]
+          : user.rol === 'personal' || user.rol === 'admin'
+            ? [
+                { key: 'inicio', label: 'Inicio', icon: Home },
+                { key: 'novedades', label: 'Novedades', icon: Bell },
+                { key: 'seguridad', label: 'Cuenta', icon: Settings },
+              ]
+            : [];
   return (
     <PortalShell
       title={

@@ -2523,10 +2523,13 @@ textarea:focus {
     visibility: hidden;
   }
   #printable-report,
-  #printable-report * {
+  #printable-report *,
+  .printable-area,
+  .printable-area * {
     visibility: visible;
   }
-  #printable-report {
+  #printable-report,
+  .printable-area {
     position: absolute;
     left: 0;
     top: 0;
