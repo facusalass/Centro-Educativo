@@ -58,9 +58,10 @@ export async function fetchReport(
   const data = await request<unknown>(`/reportes/${type}${suffix}`, { signal });
   // Todos los reportes devuelven un arreglo, salvo los personales (objeto) y
   // 'ingresos-periodo' (objeto de totales).
-  const formatoOk = isPersonalReport(type) || type === 'ingresos-periodo'
-    ? Boolean(data) && typeof data === 'object' && !Array.isArray(data)
-    : Array.isArray(data);
+  const formatoOk =
+    isPersonalReport(type) || type === 'ingresos-periodo'
+      ? Boolean(data) && typeof data === 'object' && !Array.isArray(data)
+      : Array.isArray(data);
   if (!formatoOk) {
     throw new Error('El servidor devolvió un reporte con formato inválido. Volvé a intentar.');
   }

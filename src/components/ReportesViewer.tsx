@@ -10,14 +10,7 @@ import {
   type ReportFiltros,
   type ReportType,
 } from '../services/reports';
-import type {
-  Alumno,
-  Deporte,
-  Docente,
-  Curso,
-  GrupoDeporte,
-  RecorridoTransporte,
-} from '../types';
+import type { Alumno, Deporte, Docente, Curso, GrupoDeporte, RecorridoTransporte } from '../types';
 
 interface ReportesViewerProps {
   alumnos: Alumno[];
@@ -30,7 +23,14 @@ interface ReportesViewerProps {
 
 const FILTROS_VACIOS: ReportFiltros = {};
 
-export function ReportesViewer({ alumnos, docentes, deportes, grupos, recorridos, cursos }: ReportesViewerProps) {
+export function ReportesViewer({
+  alumnos,
+  docentes,
+  deportes,
+  grupos,
+  recorridos,
+  cursos,
+}: ReportesViewerProps) {
   const [search, setSearch] = useState('');
   const [tipo, setTipo] = useState<ReportType>('alumnos-por-curso');
   const [idConsulta, setIdConsulta] = useState<string>('');
@@ -221,17 +221,13 @@ export function ReportesViewer({ alumnos, docentes, deportes, grupos, recorridos
                 type="date"
                 aria-label="Fecha desde"
                 value={filtros.desde ?? ''}
-                onChange={(e) =>
-                  setFiltros((f) => ({ ...f, desde: e.target.value }))
-                }
+                onChange={(e) => setFiltros((f) => ({ ...f, desde: e.target.value }))}
               />
               <input
                 type="date"
                 aria-label="Fecha hasta"
                 value={filtros.hasta ?? ''}
-                onChange={(e) =>
-                  setFiltros((f) => ({ ...f, hasta: e.target.value }))
-                }
+                onChange={(e) => setFiltros((f) => ({ ...f, hasta: e.target.value }))}
               />
             </>
           )}
@@ -251,9 +247,7 @@ export function ReportesViewer({ alumnos, docentes, deportes, grupos, recorridos
               <select
                 aria-label="Curso de la matrícula"
                 value={filtros.curso_id ?? ''}
-                onChange={(e) =>
-                  setFiltros((f) => ({ ...f, curso_id: e.target.value }))
-                }
+                onChange={(e) => setFiltros((f) => ({ ...f, curso_id: e.target.value }))}
               >
                 <option value="">Todos los cursos</option>
                 {cursos.map((c) => (
@@ -270,9 +264,7 @@ export function ReportesViewer({ alumnos, docentes, deportes, grupos, recorridos
               <select
                 aria-label="Deporte del reporte"
                 value={filtros.deporte_id ?? ''}
-                onChange={(e) =>
-                  setFiltros((f) => ({ ...f, deporte_id: e.target.value }))
-                }
+                onChange={(e) => setFiltros((f) => ({ ...f, deporte_id: e.target.value }))}
               >
                 <option value="">Todos los deportes</option>
                 {deportes.map((d) => (
@@ -308,9 +300,7 @@ export function ReportesViewer({ alumnos, docentes, deportes, grupos, recorridos
               <select
                 aria-label="Profesor del reporte"
                 value={filtros.profesor_id ?? ''}
-                onChange={(e) =>
-                  setFiltros((f) => ({ ...f, profesor_id: e.target.value }))
-                }
+                onChange={(e) => setFiltros((f) => ({ ...f, profesor_id: e.target.value }))}
               >
                 <option value="">Todos los profesores</option>
                 {docentes.map((d) => (
@@ -326,9 +316,7 @@ export function ReportesViewer({ alumnos, docentes, deportes, grupos, recorridos
             <select
               aria-label="Recorrido del reporte"
               value={filtros.recorrido_id ?? ''}
-              onChange={(e) =>
-                setFiltros((f) => ({ ...f, recorrido_id: e.target.value }))
-              }
+              onChange={(e) => setFiltros((f) => ({ ...f, recorrido_id: e.target.value }))}
             >
               <option value="">Todos los recorridos</option>
               {recorridos.map((r) => (

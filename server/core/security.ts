@@ -82,6 +82,8 @@ const publicGets = new Set([
   '/api/opiniones',
   '/api/actividades',
   '/api/galeria',
+  '/api/jobs/cron/fin-de-mes',
+  '/api/jobs/cron/deuda-dia-20',
 ]);
 const publicPosts = new Set([
   '/api/auth/login',
@@ -338,9 +340,20 @@ export function installSecurity(app: Express) {
   // El origin se deriva por request para que funcione en Vercel Preview sin FRONTEND_URL.
   const neutralRecovery = {
     ok: true,
-    mensaje: 'Si el email está registrado, te enviamos un enlace para restablecer la contraseña. Revisá tu casilla.',
+    mensaje:
+      'Si el email está registrado, te enviamos un enlace para restablecer la contraseña. Revisá tu casilla.',
   };
   const invalidResetLink = 'El enlace de recuperación no es válido o ya expiró. Pedí uno nuevo.';
+  const publicOrigin = (req: Request) => {
+    const configured = process.env.FRONTEND_URL?.trim();
+    if (configured) return configured.replace(/\/$/, '');
+    const vercel =
+      process.env.VERCEL_PROJECT_PRODUCTION_URL?.trim() || process.env.VERCEL_URL?.trim();
+    if (vercel) return `https://${vercel.replace(/^https?:\/\//, '').replace(/\/$/, '')}`;
+    // Último recurso para desarrollo/local: el mismo origen que atendió la
+    // solicitud. En producción conviene fijar FRONTEND_URL.
+    return `${req.protocol}://${req.get('host')}`;
+  };
   app.post('/api/auth/forgot-password', async (req: Request, res: Response) => {
     const input = objectBody(req.body);
     const email = String(input.email ?? '')
@@ -348,9 +361,6 @@ export function installSecurity(app: Express) {
       .toLowerCase();
     // Solo rechazamos cuerpos mal formados: el formato del email nunca decide la respuesta.
     assert(typeof input.email === 'string', 400, 'Ingresá un email válido.');
-    const resetLinkOrigin = (
-      process.env.FRONTEND_URL || `${req.protocol}://${req.get('host')}`
-    ).replace(/\/+$/, '');
     const user = await db.get(
       "SELECT * FROM usuarios_acceso WHERE LOWER(email) = ? AND estado = 'activo'",
       [email],
@@ -369,7 +379,7 @@ export function installSecurity(app: Express) {
         await db.insert('notificaciones', {
           usuario_id: user.id,
           titulo: 'Recuperación de contraseña',
-          mensaje: `Hola ${user.nombre}: recibimos una solicitud para restablecer tu contraseña. Ingresá al siguiente enlace durante los próximos 30 minutos: ${resetLinkOrigin}/login?token=${raw}. Si no fuiste vos, ignorá este mensaje.`,
+          mensaje: `Hola ${user.nombre}: recibimos una solicitud para restablecer tu contraseña. Ingresá al siguiente enlace durante los próximos 30 minutos: ${publicOrigin(req)}/login?token=${raw}. Si no fuiste vos, ignorá este mensaje.`,
           email: user.email,
           fecha: new Date().toISOString(),
         });

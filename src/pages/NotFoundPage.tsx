@@ -15,10 +15,14 @@ export function NotFoundPage() {
           <a className="btn btn-primary" href="/">
             <Home size={18} /> Ir al inicio
           </a>
-          <button className="btn btn-outline" type="button" onClick={() => {
-            if (window.history.length > 1) window.history.back();
-            else window.location.assign('/');
-          }}>
+          <button
+            className="btn btn-outline"
+            type="button"
+            onClick={() => {
+              if (window.history.length > 1) window.history.back();
+              else window.location.assign('/');
+            }}
+          >
             <ArrowLeft size={18} /> Volver atrás
           </button>
         </div>

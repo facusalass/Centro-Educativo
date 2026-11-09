@@ -28,7 +28,9 @@ import { ErrorBoundary } from '../components/ErrorBoundary';
 
 export function PortalPage() {
   const { user, loading, logout } = useSession();
-  const [tab, setTab] = useState(() => new URLSearchParams(window.location.search).get('tab') ?? 'inicio');
+  const [tab, setTab] = useState(
+    () => new URLSearchParams(window.location.search).get('tab') ?? 'inicio',
+  );
   const cambiarTab = (key: string) => {
     setTab(key);
     const params = new URLSearchParams(window.location.search);
@@ -151,8 +153,6 @@ export function PortalPage() {
       {tab === 'cuotas' &&
         (user.rol === 'padre' ? (
           <StudentFeesPanel />
-        ) : user.rol === 'alumno' && user.referencia_id ? (
-          <StudentFeesPanel alumnoIdFijo={user.referencia_id} />
         ) : (
           <Feedback>Tu perfil no tiene cuotas asignadas.</Feedback>
         ))}
@@ -177,9 +177,7 @@ export function PortalPage() {
             <Feedback error>{logoutError}</Feedback>
             <Button
               variant="outline"
-              onClick={() =>
-                logout().catch((e: Error) => setLogoutError(e.message))
-              }
+              onClick={() => logout().catch((e: Error) => setLogoutError(e.message))}
             >
               <LogOut size={16} /> Cerrar sesión
             </Button>

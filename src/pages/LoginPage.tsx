@@ -11,7 +11,9 @@ import type { Curso, UsuarioAcceso } from '../types';
 // con el token crudo en la query (?token=...). El token nunca viaja en el body de
 // la vista de login ni queda guardado en el estado compartido.
 const initialResetToken =
-  typeof window === 'undefined' ? '' : (new URLSearchParams(window.location.search).get('token') ?? '');
+  typeof window === 'undefined'
+    ? ''
+    : (new URLSearchParams(window.location.search).get('token') ?? '');
 
 type View = 'login' | 'forgot' | 'reset';
 
@@ -148,207 +150,203 @@ export function LoginPage() {
           </ul>
         </section>
         {view === 'login' && (
-        <form className="form-card login-card" onSubmit={submit}>
-          <KeyRound size={30} />
-          <h2>{register ? 'Crear cuenta familiar' : 'Iniciar sesión'}</h2>
-          <Feedback error>{error || catalogError}</Feedback>
-          {register && (
+          <form className="form-card login-card" onSubmit={submit}>
+            <KeyRound size={30} />
+            <h2>{register ? 'Crear cuenta familiar' : 'Iniciar sesión'}</h2>
+            <Feedback error>{error || catalogError}</Feedback>
+            {register && (
+              <label>
+                Nombre del padre, madre o tutor
+                <input
+                  required
+                  autoComplete="name"
+                  value={form.nombre_padre}
+                  onChange={(e) => setForm({ ...form, nombre_padre: e.target.value })}
+                />
+              </label>
+            )}
             <label>
-              Nombre del padre, madre o tutor
+              Email
               <input
                 required
-                autoComplete="name"
-                value={form.nombre_padre}
-                onChange={(e) => setForm({ ...form, nombre_padre: e.target.value })}
+                type="email"
+                autoComplete="username"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
               />
             </label>
-          )}
-          <label>
-            Email
-            <input
-              required
-              type="email"
-              autoComplete="username"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
-          </label>
-          <label>
-            Contraseña
-            <input
-              required
-              type="password"
-              minLength={register ? 10 : undefined}
-              maxLength={72}
-              autoComplete={register ? 'new-password' : 'current-password'}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
-          </label>
-          {register && (
-            <>
-              <small>Usá entre 10 y 72 caracteres.</small>
-              <div className="editor-grid">
+            <label>
+              Contraseña
+              <input
+                required
+                type="password"
+                minLength={register ? 10 : undefined}
+                maxLength={72}
+                autoComplete={register ? 'new-password' : 'current-password'}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+            </label>
+            {register && (
+              <>
+                <small>Usá entre 10 y 72 caracteres.</small>
+                <div className="editor-grid">
+                  <label>
+                    Nombre del hijo
+                    <input
+                      required
+                      value={form.nombre_hijo}
+                      onChange={(e) => setForm({ ...form, nombre_hijo: e.target.value })}
+                    />
+                  </label>
+                  <label>
+                    Apellido del hijo
+                    <input
+                      required
+                      value={form.apellido_hijo}
+                      onChange={(e) => setForm({ ...form, apellido_hijo: e.target.value })}
+                    />
+                  </label>
+                </div>
                 <label>
-                  Nombre del hijo
+                  DNI del hijo
                   <input
                     required
-                    value={form.nombre_hijo}
-                    onChange={(e) => setForm({ ...form, nombre_hijo: e.target.value })}
+                    inputMode="numeric"
+                    pattern="[0-9]{7,9}"
+                    value={form.dni_hijo}
+                    onChange={(e) => setForm({ ...form, dni_hijo: e.target.value })}
                   />
                 </label>
                 <label>
-                  Apellido del hijo
+                  Curso solicitado
+                  <select
+                    required
+                    value={form.curso_id}
+                    onChange={(e) => setForm({ ...form, curso_id: e.target.value })}
+                  >
+                    <option value="">Seleccionar…</option>
+                    {courses.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.nivel} · {c.anio} {c.division}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <small>
+                  Registrar al alumno permite gestionar su matrícula. La confirmación del ciclo
+                  lectivo se realiza desde el portal.
+                </small>
+              </>
+            )}
+            <Button disabled={pending} type="submit">
+              {pending ? 'Procesando…' : register ? 'Crear cuenta' : 'Ingresar'}
+            </Button>
+            <button
+              className="text-button"
+              type="button"
+              onClick={() => {
+                setRegister(!register);
+                setError('');
+              }}
+            >
+              {register ? 'Ya tengo una cuenta' : 'Soy una familia nueva: crear cuenta'}
+            </button>
+            <button
+              className="text-button"
+              type="button"
+              onClick={() => {
+                setView('forgot');
+                setError('');
+              }}
+            >
+              ¿Olvidaste tu contraseña?
+            </button>
+            <small>Si necesitás vincular un alumno ya registrado, contactá a secretaría.</small>
+          </form>
+        )}
+        {view === 'forgot' && (
+          <form className="form-card login-card" onSubmit={submitRecovery}>
+            <KeyRound size={30} />
+            <h2>Recuperar contraseña</h2>
+            <Feedback error>{recoverError}</Feedback>
+            {recoverDone ? (
+              <>
+                <Feedback>{recoverDone}</Feedback>
+                <Button type="button" onClick={() => setView('login')}>
+                  Volver a iniciar sesión
+                </Button>
+              </>
+            ) : (
+              <>
+                <Feedback>
+                  Ingresá el email de tu cuenta y te enviaremos un enlace para restablecer la
+                  contraseña (válido durante 30 minutos).
+                </Feedback>
+                <label>
+                  Email
                   <input
                     required
-                    value={form.apellido_hijo}
-                    onChange={(e) => setForm({ ...form, apellido_hijo: e.target.value })}
+                    type="email"
+                    autoComplete="username"
+                    value={recoverEmail}
+                    onChange={(e) => setRecoverEmail(e.target.value)}
                   />
                 </label>
-              </div>
-              <label>
-                DNI del hijo
-                <input
-                  required
-                  inputMode="numeric"
-                  pattern="[0-9]{7,9}"
-                  value={form.dni_hijo}
-                  onChange={(e) => setForm({ ...form, dni_hijo: e.target.value })}
-                />
-              </label>
-              <label>
-                Curso solicitado
-                <select
-                  required
-                  value={form.curso_id}
-                  onChange={(e) => setForm({ ...form, curso_id: e.target.value })}
+                <Button disabled={recoverPending} type="submit">
+                  {recoverPending ? 'Enviando…' : 'Enviar enlace de recuperación'}
+                </Button>
+                <button className="text-button" type="button" onClick={() => setView('login')}>
+                  Volver a iniciar sesión
+                </button>
+              </>
+            )}
+          </form>
+        )}
+        {view === 'reset' && (
+          <form className="form-card login-card" onSubmit={submitReset}>
+            <KeyRound size={30} />
+            <h2>Nueva contraseña</h2>
+            <Feedback error>{resetError}</Feedback>
+            {resetDone ? (
+              <>
+                <Feedback>{resetDone}</Feedback>
+                <Button type="button" onClick={backToLogin}>
+                  Iniciar sesión
+                </Button>
+              </>
+            ) : (
+              <>
+                <Feedback>Elegí tu nueva contraseña. Debe tener entre 10 y 72 caracteres.</Feedback>
+                <label>
+                  Nueva contraseña
+                  <input
+                    required
+                    type="password"
+                    minLength={10}
+                    maxLength={72}
+                    autoComplete="new-password"
+                    value={resetPassword}
+                    onChange={(e) => setResetPassword(e.target.value)}
+                  />
+                </label>
+                <Button disabled={resetPending} type="submit">
+                  {resetPending ? 'Guardando…' : 'Actualizar contraseña'}
+                </Button>
+                <button
+                  className="text-button"
+                  type="button"
+                  onClick={() => {
+                    setView('forgot');
+                    setResetError('');
+                  }}
                 >
-                  <option value="">Seleccionar…</option>
-                  {courses.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.nivel} · {c.anio} {c.division}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <small>
-                Registrar al alumno permite gestionar su matrícula. La confirmación del ciclo
-                lectivo se realiza desde el portal.
-              </small>
-            </>
-          )}
-          <Button disabled={pending} type="submit">
-            {pending ? 'Procesando…' : register ? 'Crear cuenta' : 'Ingresar'}
-          </Button>
-          <button
-            className="text-button"
-            type="button"
-            onClick={() => {
-              setRegister(!register);
-              setError('');
-            }}
-          >
-            {register ? 'Ya tengo una cuenta' : 'Soy una familia nueva: crear cuenta'}
-          </button>
-          <button
-            className="text-button"
-            type="button"
-            onClick={() => {
-              setView('forgot');
-              setError('');
-            }}
-          >
-            ¿Olvidaste tu contraseña?
-          </button>
-          <small>Si necesitás vincular un alumno ya registrado, contactá a secretaría.</small>
-        </form>
-      )}
-      {view === 'forgot' && (
-        <form className="form-card login-card" onSubmit={submitRecovery}>
-          <KeyRound size={30} />
-          <h2>Recuperar contraseña</h2>
-          <Feedback error>{recoverError}</Feedback>
-          {recoverDone ? (
-            <>
-              <Feedback>{recoverDone}</Feedback>
-              <Button type="button" onClick={() => setView('login')}>
-                Volver a iniciar sesión
-              </Button>
-            </>
-          ) : (
-            <>
-              <Feedback>
-                Ingresá el email de tu cuenta y te enviaremos un enlace para restablecer la
-                contraseña (válido durante 30 minutos).
-              </Feedback>
-              <label>
-                Email
-                <input
-                  required
-                  type="email"
-                  autoComplete="username"
-                  value={recoverEmail}
-                  onChange={(e) => setRecoverEmail(e.target.value)}
-                />
-              </label>
-              <Button disabled={recoverPending} type="submit">
-                {recoverPending ? 'Enviando…' : 'Enviar enlace de recuperación'}
-              </Button>
-              <button
-                className="text-button"
-                type="button"
-                onClick={() => setView('login')}
-              >
-                Volver a iniciar sesión
-              </button>
-            </>
-          )}
-        </form>
-      )}
-      {view === 'reset' && (
-        <form className="form-card login-card" onSubmit={submitReset}>
-          <KeyRound size={30} />
-          <h2>Nueva contraseña</h2>
-          <Feedback error>{resetError}</Feedback>
-          {resetDone ? (
-            <>
-              <Feedback>{resetDone}</Feedback>
-              <Button type="button" onClick={backToLogin}>
-                Iniciar sesión
-              </Button>
-            </>
-          ) : (
-            <>
-              <Feedback>Elegí tu nueva contraseña. Debe tener entre 10 y 72 caracteres.</Feedback>
-              <label>
-                Nueva contraseña
-                <input
-                  required
-                  type="password"
-                  minLength={10}
-                  maxLength={72}
-                  autoComplete="new-password"
-                  value={resetPassword}
-                  onChange={(e) => setResetPassword(e.target.value)}
-                />
-              </label>
-              <Button disabled={resetPending} type="submit">
-                {resetPending ? 'Guardando…' : 'Actualizar contraseña'}
-              </Button>
-              <button
-                className="text-button"
-                type="button"
-                onClick={() => {
-                  setView('forgot');
-                  setResetError('');
-                }}
-              >
-                Pedir un enlace nuevo
-              </button>
-            </>
-          )}
-        </form>
-      )}
+                  Pedir un enlace nuevo
+                </button>
+              </>
+            )}
+          </form>
+        )}
       </main>
     </div>
   );

@@ -443,9 +443,7 @@ export function registerReports(app) {
     // recibos es la única fuente de ingresos aprobados: nunca se suman comprobantes.
     const [facturas, alumnos, matriculas] = await Promise.all([
       db.all('SELECT * FROM facturas ORDER BY fecha_emision DESC, id DESC'),
-      db.all(
-        'SELECT id, legajo, apellido, nombre, nivel, curso, division, curso_id FROM alumnos',
-      ),
+      db.all('SELECT id, legajo, apellido, nombre, nivel, curso, division, curso_id FROM alumnos'),
       db.all('SELECT alumno_id, curso_id, ciclo FROM matriculas'),
     ]);
     const alumnosById = new Map(alumnos.map((a) => [Number(a.id), a]));
@@ -577,7 +575,10 @@ export function registerReports(app) {
         };
         let deporteIdItem = 0;
         let grupoCompatible = null;
-        if (grupoDirecto && inscripcionesDeportivas.some((i) => Number(i.grupo_deporte_id) === referencial)) {
+        if (
+          grupoDirecto &&
+          inscripcionesDeportivas.some((i) => Number(i.grupo_deporte_id) === referencial)
+        ) {
           deporteIdItem = Number(grupoDirecto.deporte_id);
           grupoCompatible = grupoDirecto;
         } else if (deporteDirecto && grupoDeDeporte(deporteDirecto)) {
@@ -631,18 +632,20 @@ export function registerReports(app) {
           return {
             deporte_id: Number(deporteId),
             deporte: deportesById.get(Number(deporteId))?.nombre ?? 'Deporte',
-            grupos: [...grupoIds].map((idGrupo) => {
-              const grupo = gruposById.get(idGrupo);
-              const docente = docentesById.get(Number(grupo?.profesor_id));
-              return grupo
-                ? {
-                    nivel: grupo.nivel ?? null,
-                    dia: grupo.dia ?? null,
-                    horario: grupo.horario ?? null,
-                    profesor: docente ? `${docente.apellido}, ${docente.nombre}` : null,
-                  }
-                : null;
-            }).filter(Boolean),
+            grupos: [...grupoIds]
+              .map((idGrupo) => {
+                const grupo = gruposById.get(idGrupo);
+                const docente = docentesById.get(Number(grupo?.profesor_id));
+                return grupo
+                  ? {
+                      nivel: grupo.nivel ?? null,
+                      dia: grupo.dia ?? null,
+                      horario: grupo.horario ?? null,
+                      profesor: docente ? `${docente.apellido}, ${docente.nombre}` : null,
+                    }
+                  : null;
+              })
+              .filter(Boolean),
             alumnos: alumnoIds.size,
             imputado: round2(imputado),
             pagado: round2(pagado),

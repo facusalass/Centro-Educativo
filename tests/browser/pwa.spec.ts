@@ -14,9 +14,9 @@ test('manifiesto PWA vinculado y servido con los campos esperados (HU-01)', asyn
   const sizes: string[] = manifest.icons.map((icon: { sizes: string }) => icon.sizes);
   expect(sizes).toContain('192x192');
   expect(sizes).toContain('512x512');
-  expect(
-    manifest.icons.some((icon: { purpose?: string }) => icon.purpose === 'maskable'),
-  ).toBe(true);
+  expect(manifest.icons.some((icon: { purpose?: string }) => icon.purpose === 'maskable')).toBe(
+    true,
+  );
   // El SW y los íconos se sirven junto al shell precacheado.
   expect((await request.get('/sw.js')).ok()).toBeTruthy();
   expect((await request.get('/icons/pwa-192.png')).ok()).toBeTruthy();
@@ -25,6 +25,8 @@ test('manifiesto PWA vinculado y servido con los campos esperados (HU-01)', asyn
   const html = await home.text();
   expect(html).toContain('rel="manifest"');
   expect(html).toContain('name="theme-color"');
+  expect(html).toContain('rel="apple-touch-icon"');
+  expect(html).toContain('name="apple-mobile-web-app-capable"');
 });
 
 test('el login mobile a 360x800 no desborda horizontalmente (HU-02)', async ({ page }) => {
@@ -58,7 +60,10 @@ test('portal mobile por rol y cierre de sesión sin regreso a vistas protegidas 
   await nav.getByRole('button', { name: 'Cuenta', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Cambiar contraseña' })).toBeVisible();
   // HU-03: cerrar sesión vuelve al login y no deja entrar hacia atrás.
-  await page.locator('.portal-mobile-logout').getByRole('button', { name: 'Cerrar sesión' }).click();
+  await page
+    .locator('.portal-mobile-logout')
+    .getByRole('button', { name: 'Cerrar sesión' })
+    .click();
   await expect(page.getByRole('heading', { name: 'Iniciar sesión' })).toBeVisible();
   // La sesión se borró del servidor: la vuelta atrás ya no muestra contenido
   // protegido (el sitio guarda la entrada del portal y el gate de sesión lo

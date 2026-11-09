@@ -2,14 +2,7 @@ import { Communications } from '../components/management/Communications';
 import { PaymentProofsQueue } from '../components/management/PaymentProofsQueue';
 import { AuditLog } from '../components/management/AuditLog';
 import { useState } from 'react';
-import type {
-  Alumno,
-  Curso,
-  Deporte,
-  Docente,
-  GrupoDeporte,
-  RecorridoTransporte,
-} from '../types';
+import type { Alumno, Curso, Deporte, Docente, GrupoDeporte, RecorridoTransporte } from '../types';
 import { RefreshCw } from 'lucide-react';
 import { useManagementData } from '../hooks/useManagementData';
 import { PortalShell, Feedback } from '../components/PortalShell';
