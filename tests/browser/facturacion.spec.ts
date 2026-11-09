@@ -104,10 +104,9 @@ async function subirComprobante(
   await tarjeta
     .locator('input[type="file"]')
     .setInputFiles({ name: archivo, mimeType: 'image/png', buffer: PNG_1PX });
-  // El panel recarga la página para releer los saldos después de subir.
-  const recarga = page.waitForEvent('load');
+  // El panel hace refetch y muestra mensaje, sin recargar la página.
   await tarjeta.getByRole('button', { name: 'Subir comprobante' }).click();
-  await recarga;
+  await expect(page.getByText(/Comprobante enviado, quedó en revisión/)).toBeVisible();
 }
 
 test.describe.serial('facturación, comprobantes y reportes financieros (T06)', () => {
