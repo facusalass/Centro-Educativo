@@ -66,9 +66,9 @@ test('portal mobile por rol y cierre de sesión sin regreso a vistas protegidas 
     .click();
   await expect(page.getByRole('heading', { name: 'Iniciar sesión' })).toBeVisible();
   // La sesión se borró del servidor: la vuelta atrás ya no muestra contenido
-  // protegido (el sitio guarda la entrada del portal y el gate de sesión lo
-  // impide; el borde histórico cae fuera de la app).
-  await page.goBack();
+  // protegido. El logout usa location.replace, así que puede no quedar historial
+  // al que volver: si goBack no tiene a dónde ir, eso también es un pass.
+  await page.goBack({ waitUntil: 'domcontentloaded' }).catch(() => null);
   await expect(page.getByRole('heading', { name: 'Portal de familias' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Cerrar sesión' })).toHaveCount(0);
   // Revalidando desde una carga fresca del portal también se cae al login.
