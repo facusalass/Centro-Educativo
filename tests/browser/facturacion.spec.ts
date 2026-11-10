@@ -93,6 +93,7 @@ async function subirComprobante(
 ) {
   const tarjeta = articuloDe(page, factura);
   await expect(tarjeta).toHaveCount(1);
+  await tarjeta.getByText('Informar un pago', { exact: true }).click();
   const casillas = tarjeta.getByRole('checkbox');
   await expect(casillas.first()).toBeVisible();
   const totalItems = await casillas.count();
@@ -248,6 +249,7 @@ test.describe.serial('facturación, comprobantes y reportes financieros (T06)', 
       await expect(page.getByRole('heading', { name: 'Facturas (2)' })).toBeVisible();
 
       // Deuda itemizada: una línea por concepto en cada factura del período.
+      await page.getByText('Ver desglose de deuda', { exact: true }).click();
       await expect(page.getByText(/^Deuda itemizada:/)).toHaveCount(1);
       const conceptos = ['Cursado lectivo', 'Deporte: ', 'Comedor', 'Transporte'];
       for (const concepto of conceptos) {
@@ -290,7 +292,7 @@ test.describe.serial('facturación, comprobantes y reportes financieros (T06)', 
       await subirComprobante(page, facturaPagada, ARCHIVO_PAGADA, 'todos');
       await abrirCuotas(page);
       await expect(page.getByText(/Comprobantes: 1/)).toBeVisible();
-      await expect(articuloDe(page, facturaPagada)).toContainText('en_revision');
+      await expect(articuloDe(page, facturaPagada)).toContainText('En revisión');
       // Segundo comprobante parcial sobre otro período (multi-comprobante).
       await subirComprobante(page, facturaPendiente, ARCHIVO_PENDIENTE, 'uno');
       await abrirCuotas(page);
@@ -353,6 +355,14 @@ test.describe.serial('facturación, comprobantes y reportes financieros (T06)', 
       expect(Number(detalle.saldo_pendiente)).toBe(0);
       expect(detalle.recibos).toHaveLength(1);
       expect(Number(detalle.recibos[0].monto_total)).toBe(facturaPagada.total);
+
+      await estado.selectOption('en_revision');
+      const porRechazar = page.locator('article.notice').filter({ hasText: ARCHIVO_PENDIENTE });
+      await porRechazar.getByPlaceholder('Motivo de rechazo').fill('El importe no es legible.');
+      await porRechazar.getByRole('button', { name: 'Rechazar' }).click();
+      await expect(porRechazar).toHaveCount(0);
+      await estado.selectOption('rechazado');
+      await expect(porRechazar).toContainText('El importe no es legible.');
     } finally {
       await page.close();
     }
@@ -418,6 +428,80 @@ test.describe.serial('facturación, comprobantes y reportes financieros (T06)', 
       await page.emulateMedia({ media: 'screen' });
       await dialogo.getByRole('button', { name: 'Cerrar' }).click();
       await expect(dialogo).toBeHidden();
+    } finally {
+      await page.close();
+    }
+  });
+
+  test('la UI móvil mantiene cuotas legibles y el pago desplegable en 360 y 390 px', async () => {
+    const page = await abrir('padre');
+    const errores: string[] = [];
+    page.on('pageerror', (error) => errores.push(error.message));
+    try {
+      for (const width of [360, 390]) {
+        await page.setViewportSize({ width, height: 844 });
+        await page.goto('/login?tab=cuotas');
+        await expect(page.getByRole('heading', { name: 'Facturas (2)' })).toBeVisible();
+        const nav = page.getByRole('navigation', { name: 'Navegación móvil del portal' });
+        await expect(nav).toBeVisible();
+        await expect(page.getByRole('navigation', { name: 'Secciones del portal' })).toBeHidden();
+        await expect(page.getByRole('region', { name: 'Estado de cuenta' })).toBeVisible();
+        const tarjeta = articuloDe(page, facturaPendiente);
+        await expect(tarjeta.getByRole('checkbox')).toHaveCount(0);
+        await tarjeta.getByText('Informar un pago', { exact: true }).click();
+        await expect(tarjeta.getByRole('checkbox').first()).toBeVisible();
+        await tarjeta.getByRole('button', { name: 'Subir comprobante' }).click();
+        await expect(tarjeta.getByRole('alert')).toHaveText('Seleccioná al menos un concepto.');
+        await tarjeta.getByRole('checkbox').first().check();
+        await tarjeta.getByLabel('Archivo del comprobante').setInputFiles({
+          name: 'demasiado-grande.pdf',
+          mimeType: 'application/pdf',
+          buffer: Buffer.alloc(3 * 1024 * 1024 + 1),
+        });
+        await expect(tarjeta.getByRole('alert')).toContainText('El archivo supera los 3 MB');
+        await page.screenshot({ path: `outputs/pago-movil-${width}.png`, fullPage: true });
+        await tarjeta.getByText('Informar un pago', { exact: true }).click();
+        await expect(tarjeta.getByRole('checkbox')).toHaveCount(0);
+        expect(
+          await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1),
+        ).toBe(true);
+        await page.screenshot({ path: `outputs/cuotas-movil-${width}.png`, fullPage: true });
+        for (const nombre of ['Inicio', 'Evaluaciones', 'Novedades', 'Cuenta']) {
+          await nav.getByRole('button', { name: nombre, exact: true }).click();
+          await expect(page.locator('.panel-card').first()).toBeVisible();
+          expect(
+            await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1),
+            nombre,
+          ).toBe(true);
+          await page.screenshot({ path: `outputs/portal-${nombre}-${width}.png`, fullPage: true });
+        }
+      }
+      expect(errores).toEqual([]);
+    } finally {
+      await page.close();
+    }
+  });
+
+  test('administración permite revisar comprobantes y reportes en móvil sin desbordar', async () => {
+    const page = await abrir('admin');
+    try {
+      await page.setViewportSize({ width: 360, height: 844 });
+      await page.goto('/admin');
+      await page.getByRole('button', { name: 'Validación de pagos', exact: true }).click();
+      await page.getByRole('combobox', { name: 'Estado', exact: true }).selectOption('rechazado');
+      await expect(page.locator('article.notice').first()).toContainText(
+        'El importe no es legible.',
+      );
+      expect(
+        await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1),
+      ).toBe(true);
+      await page.screenshot({ path: 'outputs/validacion-movil-360.png', fullPage: true });
+      await page.getByRole('button', { name: 'Reportes', exact: true }).click();
+      await expect(page.getByLabel('Tipo de reporte')).toBeVisible();
+      expect(
+        await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1),
+      ).toBe(true);
+      await page.screenshot({ path: 'outputs/reportes-movil-360.png', fullPage: true });
     } finally {
       await page.close();
     }

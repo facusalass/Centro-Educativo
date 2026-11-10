@@ -46,7 +46,7 @@ export function PaymentProofsQueue() {
   };
 
   return (
-    <section className="panel-card">
+    <section className="panel-card payment-proofs-panel">
       <div className="section-toolbar">
         <div>
           <span className="eyebrow">Pagos</span>
@@ -54,7 +54,7 @@ export function PaymentProofsQueue() {
         </div>
         <label>
           Estado
-          <select value={filtro} onChange={(e) => setFiltro(e.target.value)}>
+          <select aria-label="Estado" value={filtro} onChange={(e) => setFiltro(e.target.value)}>
             <option value="">Todos</option>
             <option value="en_revision">En revisión</option>
             <option value="aprobado">Aprobados</option>
@@ -68,10 +68,21 @@ export function PaymentProofsQueue() {
         <article className="notice" key={c.id}>
           <div>
             <strong>
-              #{c.id} · Factura {c.factura_id} · {c.monto_declarado}
+              #{c.id} · Factura {c.factura_id}
             </strong>
             <p>
-              {c.archivo_nombre} · {c.estado}
+              <strong>
+                {Number(c.monto_declarado).toLocaleString('es-AR', {
+                  style: 'currency',
+                  currency: 'ARS',
+                })}
+              </strong>
+            </p>
+            <p>
+              {c.archivo_nombre} ·{' '}
+              {{ en_revision: 'En revisión', aprobado: 'Aprobado', rechazado: 'Rechazado' }[
+                c.estado
+              ] ?? c.estado}
               {c.referencia_transferencia ? ` · Ref: ${c.referencia_transferencia}` : ''}
               {c.motivo_rechazo ? ` · Motivo: ${c.motivo_rechazo}` : ''}
             </p>
@@ -80,12 +91,15 @@ export function PaymentProofsQueue() {
             </a>
           </div>
           {c.estado === 'en_revision' && (
-            <div>
-              <input
-                placeholder="Motivo de rechazo"
-                value={motivo[c.id] ?? ''}
-                onChange={(e) => setMotivo({ ...motivo, [c.id]: e.target.value })}
-              />
+            <div className="payment-proof-actions">
+              <label>
+                Motivo (obligatorio al rechazar)
+                <input
+                  placeholder="Motivo de rechazo"
+                  value={motivo[c.id] ?? ''}
+                  onChange={(e) => setMotivo({ ...motivo, [c.id]: e.target.value })}
+                />
+              </label>
               <Button variant="outline" onClick={() => void validar(c.id, 'aprobar')}>
                 Aprobar
               </Button>

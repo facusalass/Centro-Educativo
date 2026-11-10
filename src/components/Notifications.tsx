@@ -29,7 +29,7 @@ export function Notifications() {
     }
   };
   return (
-    <section className="panel-card">
+    <section className="panel-card notifications-panel">
       <h2>
         <Bell size={22} /> Novedades{' '}
         <span className="badge badge-blue">{items.filter((i) => !i.leida).length} nuevas</span>

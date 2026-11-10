@@ -12,7 +12,7 @@
 }
 
 @media (max-width: 899px) {
-  .portal-desktop-tabs {
+  .portal-main .portal-desktop-tabs {
     display: none;
   }
 
@@ -52,6 +52,8 @@
 
   .portal-mobile-nav button.active {
     color: var(--blue-700, #4f46e5);
+    background: #eef2ff;
+    box-shadow: inset 0 3px 0 #4f46e5;
   }
 
   .portal-main:has(.portal-mobile-nav) {
@@ -60,6 +62,191 @@
 
   .portal-mobile-logout {
     display: block;
+  }
+}
+
+/* Lectura cómoda y controles táctiles en todas las secciones del portal. */
+@media (max-width: 620px) {
+  .internal-page .portal-heading {
+    align-items: flex-start;
+    gap: 14px;
+    margin-bottom: 20px;
+  }
+  .internal-page .portal-heading h1 {
+    font-size: 1.65rem;
+  }
+  .internal-page .portal-heading p {
+    font-size: 0.85rem;
+    line-height: 1.6;
+  }
+  .internal-page .portal-heading > .btn {
+    width: auto;
+    min-height: 44px;
+    padding: 9px 13px;
+    font-size: 0.8rem;
+  }
+  .internal-page .internal-header {
+    padding: 14px 16px;
+    gap: 8px 16px;
+  }
+  .internal-page .internal-header > strong {
+    order: -1;
+    flex-basis: 100%;
+    font-size: 0.9rem;
+  }
+  .internal-page .internal-header .text-button {
+    min-height: 36px;
+    font-size: 0.75rem;
+  }
+  .internal-page .panel-card {
+    border-radius: 16px;
+    margin-bottom: 16px;
+  }
+  .internal-page .panel-card h2 {
+    font-size: 1.15rem;
+    line-height: 1.4;
+  }
+  .internal-page .panel-card input:not([type='checkbox']),
+  .internal-page .panel-card select,
+  .internal-page .panel-card textarea {
+    font-size: 16px;
+    min-height: 46px;
+    max-width: 100%;
+  }
+  .internal-page .section-toolbar {
+    gap: 12px;
+    margin-bottom: 18px;
+  }
+  .internal-page .section-toolbar > label {
+    width: 100%;
+    margin-bottom: 0;
+  }
+  .internal-page .panel-card .btn {
+    min-height: 44px;
+    white-space: normal;
+  }
+  .internal-page .panel-card form > .btn {
+    width: 100%;
+  }
+  .internal-page .student-summary {
+    padding: 14px;
+    margin-top: 18px;
+  }
+  .internal-page .student-summary h3 {
+    margin-top: 0;
+  }
+  .internal-page .student-summary > p {
+    font-size: 0.85rem;
+    line-height: 1.6;
+  }
+  .internal-page .fee-summary {
+    background: #eef2ff;
+    border: 1px solid #c7d2fe;
+    border-radius: 12px;
+    padding: 16px;
+    margin-top: 16px;
+  }
+  .internal-page .fee-summary h3 {
+    margin-top: 0;
+    font-size: 0.95rem;
+  }
+  .internal-page .fee-summary ul {
+    padding-left: 18px;
+    font-size: 0.85rem;
+    line-height: 1.9;
+  }
+  .internal-page .notice:not(.fee-invoice) {
+    gap: 12px;
+  }
+  .internal-page .notice > div {
+    min-width: 0;
+    max-width: 100%;
+  }
+  .internal-page .notice > .btn {
+    width: 100%;
+  }
+  .notifications-panel .notice-list {
+    max-height: none;
+    overflow: visible;
+  }
+  .notifications-panel .notice {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    margin-top: 12px;
+    padding: 16px;
+  }
+  .notifications-panel .notice:not(.notice-read) {
+    border-left: 3px solid #6366f1;
+  }
+  .notifications-panel .notice p {
+    font-size: 0.85rem;
+  }
+  .notifications-panel .notice .text-button {
+    min-height: 44px;
+    align-self: flex-end;
+  }
+  .internal-page .payment-proof-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    width: 100%;
+  }
+  .internal-page .payment-proof-actions label {
+    flex-basis: 100%;
+    margin: 0;
+  }
+  .internal-page .payment-proof-actions .btn {
+    flex: 1;
+  }
+  .internal-page .portal-main > .admin-stats {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+  }
+  .internal-page .portal-main > .admin-stats article {
+    padding: 12px;
+  }
+  .internal-page .admin-stats span {
+    font-size: 0.72rem;
+    line-height: 1.5;
+  }
+  .internal-page .admin-stats strong {
+    font-size: 1.5rem;
+  }
+  .internal-page .reportes-section {
+    padding: 16px;
+  }
+  .internal-page .reportes-controls > input,
+  .internal-page .reportes-controls > select,
+  .internal-page .reportes-controls > .btn {
+    width: 100%;
+    min-width: 0;
+    min-height: 46px;
+  }
+  .internal-page .reportes-controls > input,
+  .internal-page .reportes-controls > select {
+    font-size: 16px;
+  }
+  .internal-page .report-container {
+    padding: 14px;
+  }
+  .internal-page .report-header-print {
+    flex-direction: column;
+    gap: 14px;
+  }
+  .internal-page .report-institution-title {
+    font-size: 1rem;
+    line-height: 1.5;
+  }
+  .internal-page .report-subtitle {
+    font-size: 0.8rem;
+    line-height: 1.6;
+  }
+  .internal-page .report-meta {
+    text-align: left;
+  }
+  .internal-page .report-container .report-table {
+    min-width: 560px;
   }
 }
 

@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { request, requestBinary } from '../../services/http';
 import { Feedback } from '../PortalShell';
 import type { Alumno } from '../../types';
+import { Download, Wallet, ReceiptText, Upload } from 'lucide-react';
+import './fees.css';
 
 export type FacturaItem = {
   id: number;
@@ -45,6 +47,25 @@ export type Recibo = {
 
 const fmt = (n: number) =>
   Number(n).toLocaleString('es-AR', { style: 'currency', currency: 'ARS' });
+
+const estadoTexto = (estado: string) =>
+  ({
+    pendiente: 'Pendiente',
+    parcial: 'Pago parcial',
+    en_revision: 'En revisión',
+    vencida: 'Vencida',
+    pagada: 'Pagada',
+    aprobado: 'Aprobado',
+    rechazado: 'Rechazado',
+  })[estado] ?? estado;
+const periodoTexto = (periodo: string) => {
+  const [anio, mes] = periodo.split('-').map(Number);
+  return new Date(anio, mes - 1, 1).toLocaleDateString('es-AR', { month: 'long', year: 'numeric' });
+};
+const fechaTexto = (fecha: string) => {
+  const [anio, mes, dia] = fecha.slice(0, 10).split('-').map(Number);
+  return new Date(anio, mes - 1, dia).toLocaleDateString('es-AR');
+};
 
 async function descargarPdf(path: string, nombre: string) {
   const blob = await requestBinary(path);
@@ -125,14 +146,18 @@ export function StudentFeesPanel({ alumnoIdFijo }: { alumnoIdFijo?: number }) {
   const pagadas = facturas.filter((f) => f.estado === 'pagada');
 
   return (
-    <div>
+    <div className="fees-panel">
       <Feedback error>{error}</Feedback>
       <Feedback>{mensaje}</Feedback>
       {!alumnoIdFijo && (
-        <section className="panel-card">
+        <section className="panel-card fees-student">
           <label>
             Hijo
-            <select value={alumnoId} onChange={(e) => setAlumnoId(e.target.value)}>
+            <select
+              aria-label="Hijo"
+              value={alumnoId}
+              onChange={(e) => setAlumnoId(e.target.value)}
+            >
               <option value="">Seleccionar…</option>
               {hijos.map((c) => (
                 <option key={c.id} value={c.id}>
@@ -149,15 +174,54 @@ export function StudentFeesPanel({ alumnoIdFijo }: { alumnoIdFijo?: number }) {
         <p className="empty-state">Seleccioná un alumno para ver sus cuotas.</p>
       ) : (
         <>
+          <section className="fees-overview" aria-label="Estado de cuenta">
+            <div className="fees-balance">
+              <span>
+                <Wallet size={19} aria-hidden="true" /> Estado de cuenta
+              </span>
+              <h2>{deuda ? 'Saldo pendiente total' : 'Saldo pendiente del período'}</h2>
+              <strong>
+                {fmt(
+                  deuda?.total_deuda ?? facturas.reduce((n, f) => n + Number(f.saldo_pendiente), 0),
+                )}
+              </strong>
+              <p>
+                {deuda?.total_deuda === 0
+                  ? 'Estás al día. Gracias por acompañarnos.'
+                  : 'Elegí una factura para informar tu pago.'}
+              </p>
+            </div>
+            <div className="fees-counts">
+              <span>
+                <strong>{pendientes.length}</strong> Con saldo
+              </span>
+              <span>
+                <strong>{pagadas.length}</strong> Pagadas
+              </span>
+            </div>
+          </section>
           <section className="panel-card printable-area">
             <div className="section-toolbar">
               <div>
                 <span className="eyebrow">Cuotas y facturación</span>
                 <h2>Facturas ({visibles.length})</h2>
               </div>
+              <button
+                className="fees-button fees-print"
+                type="button"
+                onClick={() => window.print()}
+              >
+                Imprimir
+              </button>
+            </div>
+            <div className="fees-filters">
               <label>
                 Estado
-                <select value={filtro} onChange={(e) => setFiltro(e.target.value)}>
+                <select
+                  aria-label="Estado"
+                  value={filtro}
+                  onChange={(e) => setFiltro(e.target.value)}
+                >
                   <option value="">Todas</option>
                   <option value="pendiente">Pendientes</option>
                   <option value="parcial">Parciales</option>
@@ -174,13 +238,24 @@ export function StudentFeesPanel({ alumnoIdFijo }: { alumnoIdFijo?: number }) {
                 Hasta
                 <input type="date" value={hasta} onChange={(e) => setHasta(e.target.value)} />
               </label>
-              <button type="button" onClick={() => window.print()}>
-                Imprimir
-              </button>
+              {(filtro || desde || hasta) && (
+                <button
+                  className="fees-button"
+                  type="button"
+                  onClick={() => {
+                    setFiltro('');
+                    setDesde('');
+                    setHasta('');
+                  }}
+                >
+                  Limpiar filtros
+                </button>
+              )}
             </div>
             {deuda && (
-              <div>
-                <p>
+              <details className="fees-debt">
+                <summary>Ver desglose de deuda</summary>
+                <p className="fees-muted">
                   Deuda itemizada: {fmt(deuda.total_deuda)} en {deuda.facturas.length} factura(s).
                 </p>
                 {deuda.facturas.map((f) => (
@@ -206,21 +281,41 @@ export function StudentFeesPanel({ alumnoIdFijo }: { alumnoIdFijo?: number }) {
                     </ul>
                   </div>
                 ))}
-              </div>
+              </details>
             )}
             {!visibles.length && <p className="empty-state">No hay facturas para este filtro.</p>}
             {visibles.map((f) => (
-              <article className="notice" key={f.id}>
-                <div>
-                  <strong>
-                    {f.numero_factura} · {f.periodo}
-                  </strong>
-                  <p>
-                    Total {fmt(f.total)} · Saldo {fmt(f.saldo_pendiente)} · {f.estado} · vence{' '}
-                    {f.fecha_vencimiento?.slice(0, 10)}
-                  </p>
+              <article className="notice fee-invoice" key={`${alumnoId}-${f.id}`}>
+                <div className="fee-invoice-heading">
+                  <h3>{periodoTexto(f.periodo)}</h3>
+                  <span className={`fee-status fee-status-${f.estado}`}>
+                    {estadoTexto(f.estado)}
+                  </span>
                 </div>
+                <p className="fee-invoice-number">
+                  {f.numero_factura} · {f.periodo}
+                </p>
+                <div className="fee-invoice-amounts">
+                  <div>
+                    <span>{f.saldo_pendiente > 0 ? 'Saldo a pagar' : 'Saldo pendiente'}</span>
+                    <strong>{fmt(f.saldo_pendiente)}</strong>
+                  </div>
+                  <div>
+                    <span>Total facturado</span>
+                    <b>{fmt(f.total)}</b>
+                  </div>
+                </div>
+                <p className="fee-due">
+                  Vencimiento:{' '}
+                  {f.fecha_vencimiento ? fechaTexto(f.fecha_vencimiento) : 'Sin definir'}
+                </p>
+                {f.estado === 'en_revision' && (
+                  <p className="fee-review">
+                    Estamos revisando tu comprobante. Te avisaremos cuando se valide.
+                  </p>
+                )}
                 <button
+                  className="fees-button"
                   type="button"
                   onClick={() => {
                     descargarPdf(`/facturas/${f.id}/pdf`, `${f.numero_factura}.pdf`).catch(
@@ -228,7 +323,7 @@ export function StudentFeesPanel({ alumnoIdFijo }: { alumnoIdFijo?: number }) {
                     );
                   }}
                 >
-                  PDF factura
+                  <Download size={16} aria-hidden="true" /> PDF factura
                 </button>
                 {f.saldo_pendiente > 0 &&
                   ['pendiente', 'parcial', 'vencida'].includes(f.estado) && (
@@ -243,13 +338,21 @@ export function StudentFeesPanel({ alumnoIdFijo }: { alumnoIdFijo?: number }) {
               </article>
             ))}
           </section>
-          <section className="panel-card">
+          <section className="panel-card fees-records">
+            <span className="eyebrow">
+              <ReceiptText size={16} aria-hidden="true" /> Pagos confirmados
+            </span>
             <h2>Recibos ({recibos.length})</h2>
             {!recibos.length && <p className="empty-state">Sin recibos en el rango.</p>}
             {recibos.map((r) => (
-              <p key={r.id}>
-                {r.numero_recibo} · {fmt(r.monto_total)}{' '}
+              <div className="fee-record" key={r.id}>
+                <div>
+                  <strong>{fmt(r.monto_total)}</strong>
+                  <span>{r.numero_recibo}</span>
+                  <small>{fechaTexto(r.fecha_emision)}</small>
+                </div>
                 <button
+                  className="fees-button"
                   type="button"
                   onClick={() => {
                     descargarPdf(`/recibos/${r.id}/pdf`, `${r.numero_recibo}.pdf`).catch(
@@ -257,39 +360,40 @@ export function StudentFeesPanel({ alumnoIdFijo }: { alumnoIdFijo?: number }) {
                     );
                   }}
                 >
-                  PDF recibo
+                  <Download size={16} aria-hidden="true" /> PDF recibo
                 </button>
-              </p>
+              </div>
             ))}
           </section>
           <section className="panel-card">
-            <h2>Resumen</h2>
-            <p>
-              Pendientes: {pendientes.length} · Pagadas: {pagadas.length} · Comprobantes:{' '}
-              {comprobantes.length} · Recibos: {recibos.length}
-            </p>
+            <h2>Comprobantes: {comprobantes.length}</h2>
+            <p className="fees-muted">Seguí el estado de los pagos que informaste.</p>
+            {!comprobantes.length && (
+              <p className="empty-state">Todavía no enviaste comprobantes.</p>
+            )}
             {comprobantes.length > 0 && (
-              <ul>
+              <ul className="fee-proof-list">
                 {comprobantes.map((c) => (
-                  <li key={c.id}>
-                    Comprobante #{c.id} · {c.estado}
-                    {c.estado === 'rechazado' ? `: ${c.motivo_rechazo ?? 'sin motivo'}` : ''}{' '}
+                  <li className="fee-proof" key={c.id}>
+                    <div className="fee-invoice-heading">
+                      <strong>Comprobante #{c.id}</strong>
+                      <span className={`fee-status fee-status-${c.estado}`}>
+                        {estadoTexto(c.estado)}
+                      </span>
+                    </div>
+                    <p>
+                      {fmt(c.monto_declarado)} · {fechaTexto(c.fecha_presentacion)}
+                    </p>
+                    {c.estado === 'rechazado' && (
+                      <p className="fee-rejection">
+                        {c.motivo_rechazo ?? 'Consultá con administración el motivo del rechazo.'}
+                      </p>
+                    )}
                     <a href={`/api/comprobantes/${c.id}/archivo`} target="_blank" rel="noreferrer">
                       Ver archivo
                     </a>
                   </li>
                 ))}
-              </ul>
-            )}
-            {comprobantes.some((c) => c.estado === 'rechazado') && (
-              <ul>
-                {comprobantes
-                  .filter((c) => c.estado === 'rechazado')
-                  .map((c) => (
-                    <li key={c.id}>
-                      Comprobante #{c.id} rechazado: {c.motivo_rechazo ?? 'sin motivo'}
-                    </li>
-                  ))}
               </ul>
             )}
           </section>
@@ -310,6 +414,7 @@ function UploadComprobante({ facturaId, onSubido }: { facturaId: number; onSubid
   const [referencia, setReferencia] = useState('');
   const [subiendo, setSubiendo] = useState(false);
   const [error, setError] = useState('');
+  const [cargandoItems, setCargandoItems] = useState(true);
   useEffect(() => {
     request<{
       items: {
@@ -325,7 +430,8 @@ function UploadComprobante({ facturaId, onSubido }: { facturaId: number; onSubid
           d.items.filter((it) => it.estado === 'pendiente' && it.monto - it.monto_pagado > 0),
         ),
       )
-      .catch(() => {});
+      .catch((e: Error) => setError(e.message))
+      .finally(() => setCargandoItems(false));
   }, [facturaId]);
   const enviar = async () => {
     if (subiendo) return;
@@ -367,49 +473,100 @@ function UploadComprobante({ facturaId, onSubido }: { facturaId: number; onSubid
     }
   };
   return (
-    <div>
-      <Feedback error>{error}</Feedback>
-      {!items.length && <p className="empty-state">No hay conceptos pendientes de pago.</p>}
-      {items.map((it) => {
-        const saldo = it.monto - it.monto_pagado;
-        const bloqueado = saldo <= 0;
-        return (
-          <label key={it.id}>
-            <input
-              type="checkbox"
-              disabled={bloqueado}
-              checked={seleccion.includes(it.id)}
-              onChange={(e) =>
-                setSeleccion(
-                  e.target.checked ? [...seleccion, it.id] : seleccion.filter((s) => s !== it.id),
-                )
-              }
-            />
-            {it.descripcion} (saldo {saldo.toFixed(2)}){bloqueado ? ' — pagado' : ''}
-          </label>
-        );
-      })}
-      <input
-        type="file"
-        accept=".jpg,.jpeg,.png,.pdf"
-        onChange={(e) => {
-          const elegido = e.target.files?.[0] ?? null;
-          if (elegido && elegido.size > MAX_COMPROBANTE_BYTES) {
-            setError('El archivo supera los 3 MB. Probá con una foto más liviana o un PDF.');
-            setArchivo(null);
-            return;
-          }
-          setArchivo(elegido);
+    <details className="fee-upload">
+      <summary>
+        <Upload size={17} aria-hidden="true" /> Informar un pago
+      </summary>
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          void enviar();
         }}
-      />
-      <input
-        placeholder="Referencia de transferencia"
-        value={referencia}
-        onChange={(e) => setReferencia(e.target.value)}
-      />
-      <button type="button" disabled={subiendo} onClick={() => void enviar()}>
-        {subiendo ? 'Subiendo…' : 'Subir comprobante'}
-      </button>
-    </div>
+      >
+        <p className="fees-muted">
+          Seleccioná los conceptos que pagaste y adjuntá tu transferencia. Administración la
+          revisará.
+        </p>
+        <Feedback error>{error}</Feedback>
+        {cargandoItems ? (
+          <p role="status">Cargando conceptos…</p>
+        ) : (
+          !items.length && <p className="empty-state">No hay conceptos pendientes de pago.</p>
+        )}
+        <fieldset className="fee-concepts" disabled={subiendo}>
+          <legend>1. ¿Qué conceptos pagaste?</legend>
+          {items.map((it) => {
+            const saldo = it.monto - it.monto_pagado;
+            const bloqueado = saldo <= 0;
+            return (
+              <label className="fee-concept" key={it.id}>
+                <input
+                  type="checkbox"
+                  disabled={bloqueado}
+                  checked={seleccion.includes(it.id)}
+                  onChange={(e) =>
+                    setSeleccion(
+                      e.target.checked
+                        ? [...seleccion, it.id]
+                        : seleccion.filter((s) => s !== it.id),
+                    )
+                  }
+                />
+                <span>
+                  {it.descripcion}
+                  <strong>{fmt(saldo)}</strong>
+                </span>
+              </label>
+            );
+          })}
+        </fieldset>
+        <div className="fee-selected-total">
+          <span>Total seleccionado</span>
+          <strong>
+            {fmt(
+              items
+                .filter((it) => seleccion.includes(it.id))
+                .reduce((n, it) => n + (it.monto - it.monto_pagado), 0),
+            )}
+          </strong>
+        </div>
+        <label>
+          2. Adjuntá el comprobante
+          <span className="fees-muted">JPG, PNG o PDF · Hasta 3 MB</span>
+          <input
+            type="file"
+            aria-label="Archivo del comprobante"
+            disabled={subiendo}
+            accept=".jpg,.jpeg,.png,.pdf"
+            onChange={(e) => {
+              const elegido = e.target.files?.[0] ?? null;
+              if (elegido && elegido.size > MAX_COMPROBANTE_BYTES) {
+                setError('El archivo supera los 3 MB. Probá con una foto más liviana o un PDF.');
+                setArchivo(null);
+                return;
+              }
+              setError('');
+              setArchivo(elegido);
+            }}
+          />
+        </label>
+        <label>
+          Referencia de transferencia (opcional)
+          <input
+            placeholder="Referencia de transferencia"
+            disabled={subiendo}
+            value={referencia}
+            onChange={(e) => setReferencia(e.target.value)}
+          />
+        </label>
+        <button
+          className="fees-button fees-button-primary"
+          type="submit"
+          disabled={subiendo || cargandoItems || !items.length}
+        >
+          {subiendo ? 'Subiendo…' : 'Subir comprobante'}
+        </button>
+      </form>
+    </details>
   );
 }

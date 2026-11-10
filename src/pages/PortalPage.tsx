@@ -36,6 +36,7 @@ export function PortalPage() {
     const params = new URLSearchParams(window.location.search);
     params.set('tab', key);
     window.history.replaceState(null, '', `${window.location.pathname}?${params.toString()}`);
+    window.scrollTo({ top: 0, behavior: 'instant' });
   };
   const [logoutError, setLogoutError] = useState('');
   const [profileRevision, setProfileRevision] = useState(0);

@@ -88,11 +88,13 @@ for (const role of ['alumno', 'docente', 'padre']) {
   test(`el portal de ${role} funciona en móvil sin desbordar`, async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await login(page, role);
-    await expect(page.getByRole('button', { name: 'Mi cuenta', exact: true })).toBeVisible();
+    const nav = page.getByRole('navigation', { name: 'Navegación móvil del portal' });
+    await expect(nav.getByRole('button', { name: 'Cuenta', exact: true })).toBeVisible();
+    await expect(page.getByRole('navigation', { name: 'Secciones del portal' })).toBeHidden();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(
       true,
     );
-    await page.getByRole('button', { name: 'Mi cuenta', exact: true }).click();
+    await nav.getByRole('button', { name: 'Cuenta', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'Cambiar contraseña' })).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(
       true,
